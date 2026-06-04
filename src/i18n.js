@@ -78,7 +78,7 @@ const messages = {
     // eventos de puntos
     evCaida: '¡Caída! +2',
     evLimpia: '¡Limpia! +2',
-    evCaidaLimpia: '¡Caída y limpia! +4',
+    evCaidaLimpia: '¡Caída y limpia! +2',
     evCaidaEnRonda: '¡Caída en ronda! +4',
     evRonda: '¡Ronda! +4',
     evDobleRonda: '¡Doble ronda! +8',
@@ -203,7 +203,7 @@ const messages = {
     cancel: 'Cancel',
     evCaida: 'Caída! +2',
     evLimpia: 'Sweep! +2',
-    evCaidaLimpia: 'Caída & sweep! +4',
+    evCaidaLimpia: 'Caída & sweep! +2',
     evCaidaEnRonda: 'Caída on ronda! +4',
     evRonda: 'Ronda! +4',
     evDobleRonda: 'Double ronda! +8',

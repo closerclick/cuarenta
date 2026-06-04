@@ -274,4 +274,32 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.equal(ns.scores[team], 4, 'caída en ronda = 4 (sin limpia, queda la K)')
 }
 
-console.log('OK — corte, captura, robar, carry, fatal, stale-rob, 38, caída-en-ronda y 40 partidas.')
+// ── tirar FUERA DE TURNO = pasa la mano con 10 ─────────────────
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const e = makeCuarentaEngine(); const rng = mulberry32(17)
+  let s = e.initialState(rng); let ci = 0
+  for (const sid of s.activeSeats) s = e.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
+  const other = s.activeSeats.find(x => x !== s.turn) // el que NO tiene el turno
+  const offTeam = s.teamOf[other]
+  const card = s.hands[other][0]
+  const ns = e.reducer(s, { type: 'play', card: card.id, captured: [] }, { seat: other, seats: {}, rng, now: 0 })
+  assert.ok(ns.lastEvents.some(ev => ev.type === 'fault'), 'fuera de turno = fault')
+  assert.equal(ns.scores[offTeam === 0 ? 1 : 0], 10, '+10 al otro equipo')
+}
+
+// ── caída y limpia = 2 (no se suman) ───────────────────────────
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const e = makeCuarentaEngine(); const rng = mulberry32(19)
+  let s = e.initialState(rng); let ci = 0
+  for (const sid of s.activeSeats) s = e.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
+  const seat = s.turn; const team = s.teamOf[seat]; s.scores = [0, 0]; s.rondaRank = {}
+  const hc = s.hands[seat][0]
+  const rival = { id: hc.r + 'Zc', r: hc.r, s: 'c', seq: hc.seq, sum: hc.sum }
+  s.table = [rival]; s.lastPlay = { seat: 'p2', card: rival } // caída + al capturarlo la mesa queda vacía (limpia)
+  const ns = e.reducer(s, { type: 'play', card: hc.id, captured: [rival.id] }, { seat, seats: {}, rng, now: 0 })
+  assert.equal(ns.scores[team], 2, 'caída y limpia = 2')
+}
+
+console.log('OK — corte, captura, robar, carry, fatal, fuera-de-turno, 38, caída/limpia=2, caída-en-ronda y 40 partidas.')

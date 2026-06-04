@@ -108,11 +108,12 @@
       <button v-if="selected.size" class="link clear" @click="selected.clear()" data-testid="clear-sel">{{ t.clearSel }} ({{ selected.size }})</button>
     </div>
 
-    <!-- Mi mano -->
-    <div class="hand" v-if="game?.myHand?.length" data-testid="my-hand">
+    <!-- Mi mano (resaltada cuando es mi turno). Se puede tirar fuera de turno,
+         pero el motor lo castiga: pasa la mano con 10. -->
+    <div class="hand" :class="{ 'my-turn-glow': isMyTurn, 'not-turn': !isMyTurn }" v-if="game?.myHand?.length" data-testid="my-hand">
       <PlayingCard
         v-for="c in game.myHand" :key="c.id" :card="c"
-        :clickable="isMyTurn && !claimOpen" @play="onThrow"
+        :clickable="!!mySeat && !claimOpen" @play="onThrow"
       />
     </div>
     <div class="hand spectator-note" v-else-if="playing && !mySeat">
@@ -423,6 +424,7 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat.team1 { border-top: 3px solid var(--color-info); }
 .seat.me { background: var(--bg-elev); box-shadow: 0 0 0 1px var(--color-primary) inset, var(--shadow-sm); }
 .seat.turn { box-shadow: 0 0 0 2px var(--color-primary), 0 0 16px rgba(205,163,80,.4); }
+.seat.me.turn { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 26px rgba(205,163,80,.85); animation: turn-glow 1.1s ease-in-out infinite; }
 .seat.disc { opacity: 0.6; }
 .seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; }
 .seat-name { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -458,11 +460,25 @@ button.link:hover { transform: none; background: none; }
 
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
 .turn-bar { text-align: center; min-height: 24px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
-.my-turn { color: var(--color-primary); font-weight: 700; }
+.my-turn {
+  color: var(--color-primary); font-weight: 800; font-size: 1.2rem; letter-spacing: .01em;
+  text-shadow: 0 0 12px rgba(205,163,80,.7); animation: turn-text 1.1s ease-in-out infinite;
+}
+@keyframes turn-text { 0%,100% { opacity: .8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
 .claim-hint { color: var(--color-warning); font-weight: 600; }
 button.link.clear { color: var(--color-text-secondary); }
 
-.hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 8px; min-height: 96px; }
+.hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 12px; min-height: 96px; border-radius: 16px; transition: box-shadow .2s ease; }
+/* Glow FUERTE y pulsante cuando es MI turno: que no haya duda. */
+.hand.my-turn-glow {
+  box-shadow: 0 0 0 2px var(--color-primary), 0 0 30px 8px rgba(205,163,80,.55);
+  animation: turn-glow 1.1s ease-in-out infinite;
+}
+@keyframes turn-glow {
+  0%,100% { box-shadow: 0 0 0 2px var(--color-primary), 0 0 22px 4px rgba(205,163,80,.45); }
+  50%     { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 46px 14px rgba(205,163,80,.85); }
+}
+.hand.not-turn { opacity: .92; }
 .spectator-note { color: var(--color-text-secondary); align-items: center; }
 .play-hint { text-align: center; font-size: 0.8rem; margin: -4px 0 0; }
 
@@ -484,7 +500,10 @@ button.link.clear { color: var(--color-text-secondary); }
   display: flex; flex-direction: column; align-items: center; gap: 12px;
   padding: 18px 22px; border-radius: 18px;
   background: rgba(20, 16, 10, 0.78); box-shadow: var(--shadow-lg);
-  animation: cine-float 1.9s ease-in-out;
+  /* `forwards` mantiene el estado final: la animación entra y flota PERO ya no
+     baja a opacity 0 al terminar, así no hay flash de reaparición. El desvanecido
+     final lo hace la transición de salida de Vue al quitar el overlay. */
+  animation: cine-float 1.9s ease-in-out forwards;
 }
 .cine-box :deep(.cine-result) { --cw: 104px; outline: 3px solid var(--color-primary); box-shadow: 0 0 22px rgba(205,163,80,.7); }
 .cine-taken { display: flex; gap: 8px; --cw: 78px; }
@@ -498,8 +517,7 @@ button.link.clear { color: var(--color-text-secondary); }
 @keyframes cine-float {
   0%   { transform: scale(.6) translateY(20px); opacity: 0; }
   14%  { transform: scale(1) translateY(0); opacity: 1; }
-  82%  { transform: scale(1) translateY(-6px); opacity: 1; }
-  100% { transform: scale(.96) translateY(-22px); opacity: 0; }
+  100% { transform: scale(1) translateY(-8px); opacity: 1; }
 }
 .cine-enter-active, .cine-leave-active { transition: opacity .2s ease; }
 .cine-enter-from, .cine-leave-to { opacity: 0; }

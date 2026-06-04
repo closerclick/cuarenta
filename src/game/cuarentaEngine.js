@@ -192,9 +192,10 @@ function applyCapture (s, team, seat, resultCard, capturedCards, prevLast, allow
   // ("caída con ronda") es caída normal (2).
   const seatRonda = s.rondaRank ? s.rondaRank[seat] : null
   const caidaEnRonda = caida && seatRonda != null && seatRonda === resultCard.r
-  if (caida) { const cp = caidaEnRonda ? 4 : 2; addPoints(s, team, cp, true); pts += cp }
   const limpia = s.table.length === 0
-  if (limpia) { addPoints(s, team, 2, false); pts += 2 }
+  // Caída y limpia NO se suman: si hay caída vale 2 (la limpia no añade); caída en
+  // ronda vale 4. La limpia sola (sin caída) vale 2.
+  if (caida) { pts = caidaEnRonda ? 4 : 2; addPoints(s, team, pts, true) } else if (limpia) { pts = 2; addPoints(s, team, 2, false) }
   s.lastEvents.push({
     type: caidaEnRonda ? 'caidaEnRonda'
       : caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
@@ -343,11 +344,18 @@ export function makeCuarentaEngine () {
 
       if (action.type !== 'play') throw new Error('unknown-action')
       if (state.phase !== 'play') throw new Error('not-play-phase')
-      if (ctx.seat !== state.turn) throw new Error('not-your-turn')
       const hand = state.hands[ctx.seat]
       if (!hand) throw new Error('not-a-player')
       const idx = hand.findIndex(c => c.id === action.card)
       if (idx < 0) throw new Error('card-not-in-hand')
+      // Tirar FUERA DE TURNO (con una carta que sí tienes) = error fatal: pasa la
+      // mano con 10 al otro equipo. (Acción inválida/sin carta → se rechaza, no penaliza.)
+      if (ctx.seat !== state.turn) {
+        const sf = clone(state)
+        sf.lastEvents = []
+        applyFault(sf, state.teamOf[ctx.seat], ctx.rng)
+        return sf
+      }
 
       const s = clone(state)
       s.lastEvents = []

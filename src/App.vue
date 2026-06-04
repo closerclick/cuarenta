@@ -11,7 +11,7 @@
         </div>
       </div>
       <div class="actions">
-        <button v-if="installEvt" class="ghost" @click="install" title="Instalar / Install" data-testid="install-btn">⬇</button>
+        <closer-click-install class="cc-install" :lang="lang" label="" data-testid="install-btn"></closer-click-install>
         <button class="ghost" @click="rulesOpen = true" :title="t.rules" data-testid="rules-btn">?</button>
         <button class="ghost" @click="toggleLang" :title="lang === 'es' ? 'English' : 'Español'">{{ lang === 'es' ? 'EN' : 'ES' }}</button>
         <button class="ghost" @click="settingsOpen = true" :title="t.identity" data-testid="settings-btn">⚙</button>
@@ -103,15 +103,9 @@ useBackLayer(L.inRoom, { onClose: () => onLeave() })
 const nickDraft = ref(L.myNickname.value || '')
 const nickInput = ref(null)
 
-// PWA: botón Instalar (beforeinstallprompt).
-const installEvt = ref(null)
-async function install () {
-  const e = installEvt.value
-  if (!e) return
-  e.prompt()
-  await e.userChoice
-  installEvt.value = null
-}
+// PWA: el botón Instalar lo aporta el Web Component <closer-click-install>
+// (paquete del ecosistema): captura temprana de beforeinstallprompt, rama iOS
+// con modal y auto-ocultado si ya está instalada. Sin lógica local.
 
 watch(() => L.nickModalOpen.value, (open) => {
   if (open) { nickDraft.value = L.myNickname.value || ''; nextTick(() => nickInput.value?.focus()) }
@@ -173,8 +167,6 @@ const rulesHtml = `
 `
 
 onMounted(() => {
-  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt.value = e })
-  window.addEventListener('appinstalled', () => { installEvt.value = null })
   L.refreshIdentity?.()
   // API para tests E2E (Playwright): operar sin depender de coordenadas.
   window.__cuarenta = {
@@ -204,6 +196,14 @@ onMounted(() => {
   position: sticky; top: 0; z-index: 50;
 }
 .cc-back { color: var(--color-text); --cc-back-size: 34px; margin-left: -4px; flex-shrink: 0; }
+/* Botón Instalar (Web Component) con el mismo look que los .ghost del header. */
+.cc-install {
+  color: var(--color-text); flex-shrink: 0;
+  --cc-install-pad: 0; --cc-install-radius: 10px; --cc-install-gap: 0;
+  --cc-install-icon: 18px; --cc-install-bg-hover: transparent;
+  --cc-install-accent: var(--color-primary);
+}
+.cc-install::part(button) { width: 38px; height: 38px; border: 1px solid var(--color-border); }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-logo { width: 36px; height: 36px; border-radius: 9px; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
