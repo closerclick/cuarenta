@@ -15,53 +15,15 @@
       </div>
     </div>
 
-    <!-- Asientos -->
-    <div class="seats" :class="'n' + Math.max(visibleSeats.length, 2)">
-      <div
-        v-for="id in visibleSeats" :key="id"
-        class="seat" :class="['team' + (seatIds.indexOf(id) % 2), { me: id === mySeat, turn: playing && game?.turn === id, occ: seatOf(id)?.occupied, disc: seatOf(id)?.status === 'disconnected' }]"
-        :data-testid="'seat-' + id" :data-seat-state="seatOf(id)?.occupied ? 'occupied' : 'open'"
-      >
-        <template v-if="seatOf(id)?.occupied">
-          <div class="seat-head">
-            <span class="seat-name">{{ seatOf(id).name || t.noName }}<span v-if="id === mySeat" class="you"> ({{ t.you }})</span></span>
-            <button
-              v-if="seatOf(id).pubkey && seatOf(id).pubkey !== myPubkey"
-              class="link rate" @click="$emit('rate', seatOf(id))" :title="t.reputation" :aria-label="t.reputation"
-            >★</button>
-          </div>
-          <div class="seat-cards" v-if="playing">
-            <PlayingCard v-for="n in (game?.handCounts?.[id] || 0)" :key="n" face-down mini />
-          </div>
-          <div class="seat-status">
-            <span v-if="!playing && seatOf(id).ready" class="ready-tag">✓ {{ t.ready }}</span>
-            <span v-else-if="!playing" class="muted">…</span>
-            <span v-if="seatOf(id).status === 'disconnected'" class="muted">⏸</span>
-          </div>
-          <div class="seat-actions" v-if="id === mySeat && !playing">
-            <button class="sm" :class="{ success: seatOf(id).ready }" @click="setReady(!seatOf(id).ready)" :data-testid="'ready-' + id">
-              {{ seatOf(id).ready ? t.notReady : t.ready }}
-            </button>
-            <button class="sm" @click="leaveSeat" :data-testid="'leave-seat-' + id">{{ t.leaveSeat }}</button>
-          </div>
-        </template>
-        <template v-else>
-          <div class="seat-empty">{{ t.emptySeat }}</div>
-          <button
-            v-if="!mySeat && !playing" class="sm primary" @click="takeSeat(id)" :data-testid="'take-' + id"
-          >{{ t.takeSeat }}</button>
-        </template>
-      </div>
-    </div>
-
-    <!-- Centro: mazo + mesa -->
-    <div class="center">
-      <div class="deck-info">
-        <div class="deck-pile" v-if="(game?.deckCount || 0) > 0"><PlayingCard face-down /></div>
-        <div class="deck-count">{{ t.deck }}: {{ game?.deckCount ?? 0 }}</div>
-      </div>
-      <div class="table-felt" data-testid="table-felt">
-        <div class="table-label">{{ t.onTable }}</div>
+    <!-- Mesa: fieltro central + asientos en su lado (tú siempre abajo) -->
+    <div class="table-area" :class="'players-' + (visibleSeats.length || 2)">
+      <!-- Fieltro central -->
+      <div class="felt" data-testid="table-felt">
+        <div class="deck" v-if="(game?.deckCount || 0) > 0">
+          <PlayingCard face-down mini />
+          <span class="deck-count">{{ game?.deckCount ?? 0 }}</span>
+        </div>
+        <span class="felt-label">{{ t.onTable }}</span>
         <transition-group name="lay" tag="div" class="table-cards">
           <PlayingCard
             v-for="c in (game?.table || [])" :key="c.id" :card="c"
@@ -69,6 +31,44 @@
           />
         </transition-group>
         <div v-if="!(game?.table || []).length" class="table-empty">—</div>
+      </div>
+
+      <!-- Asientos alrededor de la mesa -->
+      <div
+        v-for="s in tableSeats" :key="s.id"
+        class="seat" :class="['pos-' + s.pos, 'team' + (seatIds.indexOf(s.id) % 2), { me: s.id === mySeat, turn: playing && game?.turn === s.id, occ: seatOf(s.id)?.occupied, disc: seatOf(s.id)?.status === 'disconnected' }]"
+        :data-testid="'seat-' + s.id" :data-seat-state="seatOf(s.id)?.occupied ? 'occupied' : 'open'"
+      >
+        <template v-if="seatOf(s.id)?.occupied">
+          <div class="seat-head">
+            <span class="seat-name">{{ seatOf(s.id).name || t.noName }}<span v-if="s.id === mySeat" class="you"> ({{ t.you }})</span></span>
+            <button
+              v-if="seatOf(s.id).pubkey && seatOf(s.id).pubkey !== myPubkey"
+              class="link rate" @click="$emit('rate', seatOf(s.id))" :title="t.reputation" :aria-label="t.reputation"
+            >★</button>
+          </div>
+          <div class="seat-cards" v-if="playing">
+            <PlayingCard v-for="n in Math.min(game?.handCounts?.[s.id] || 0, 5)" :key="n" face-down mini />
+          </div>
+          <div class="seat-status">
+            <span v-if="playing && game?.turn === s.id" class="turn-dot">●</span>
+            <span v-if="!playing && seatOf(s.id).ready" class="ready-tag">✓ {{ t.ready }}</span>
+            <span v-else-if="!playing" class="muted">…</span>
+            <span v-if="seatOf(s.id).status === 'disconnected'" class="muted">⏸</span>
+          </div>
+          <div class="seat-actions" v-if="s.id === mySeat && !playing">
+            <button class="sm" :class="{ success: seatOf(s.id).ready }" @click="setReady(!seatOf(s.id).ready)" :data-testid="'ready-' + s.id">
+              {{ seatOf(s.id).ready ? t.notReady : t.ready }}
+            </button>
+            <button class="sm" @click="leaveSeat" :data-testid="'leave-seat-' + s.id">{{ t.leaveSeat }}</button>
+          </div>
+        </template>
+        <template v-else>
+          <div class="seat-empty">{{ t.emptySeat }}</div>
+          <button
+            v-if="!mySeat && !playing" class="sm primary" @click="takeSeat(s.id)" :data-testid="'take-' + s.id"
+          >{{ t.takeSeat }}</button>
+        </template>
       </div>
     </div>
 
@@ -170,6 +170,19 @@ const visibleSeats = computed(() => {
   return game.value?.activeSeats || seatIds.value.filter(id => seatOf(id)?.occupied)
 })
 
+// Posiciones alrededor de la mesa, en sentido horario, con MI asiento siempre
+// abajo. En 4 jugadores: yo abajo, rival a la derecha, compañero enfrente, rival
+// a la izquierda (asientos alternados = compañero al frente).
+const POS_LAYOUT = { 1: ['bottom'], 2: ['bottom', 'top'], 4: ['bottom', 'right', 'top', 'left'] }
+const tableSeats = computed(() => {
+  const ids = visibleSeats.value
+  const n = ids.length
+  const layout = POS_LAYOUT[n] || POS_LAYOUT[2]
+  let base = 0
+  if (mySeat.value) { const i = ids.indexOf(mySeat.value); if (i >= 0) base = i }
+  return layout.map((pos, k) => ({ id: ids[(base + k) % n], pos }))
+})
+
 // Equipos (autoritativos durante el juego; antes, por paridad de asiento).
 function teamMembers (ti) {
   const teams = game.value?.teams
@@ -244,40 +257,70 @@ watch(() => game.value?.lastEvents, (evs) => {
 .team-pts small { font-size: 0.9rem; color: var(--color-text-tertiary); }
 .team-sub { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
 
-.seats { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); }
-.seats.n4 { grid-template-columns: repeat(4, 1fr); }
-@media (max-width: 640px) { .seats.n4 { grid-template-columns: repeat(2, 1fr); } }
-.seat { border: 1px solid var(--color-border); border-radius: var(--border-radius-md); padding: 8px; background: var(--color-surface); min-height: 84px; display: flex; flex-direction: column; gap: 6px; }
+/* ── Mesa: fieltro central + asientos en cada lado ── */
+.table-area {
+  position: relative;
+  width: min(94vw, 540px);
+  height: min(94vw, 540px);
+  margin: 6px auto;
+}
+.felt {
+  position: absolute;
+  border-radius: 50% / 42%;
+  background: radial-gradient(circle at 50% 42%, #3f7a3c, #234b22 72%, #1c3c1b);
+  border: 6px solid #5a431f;
+  box-shadow: inset 0 4px 26px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+  display: flex; align-items: center; justify-content: center;
+}
+/* deja sitio a los asientos: 2 jug. arriba/abajo; 4 también a los lados */
+.players-2 .felt, .players-1 .felt { top: 96px; bottom: 96px; left: 8px; right: 8px; }
+.players-4 .felt { top: 96px; bottom: 96px; left: 96px; right: 96px; }
+.felt-label { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); font-size: 0.66rem; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.45); }
+.deck { position: absolute; top: 10px; right: 12px; display: flex; align-items: center; gap: 5px; }
+.deck-count { font-size: 0.72rem; color: rgba(255,255,255,.7); }
+.table-cards { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: center; max-width: 86%; }
+.table-empty { color: rgba(255,255,255,.4); font-size: 1.6rem; }
+:deep(.pcard.last) { outline: 2px solid var(--color-warning); }
+
+/* asientos posicionados */
+.seat {
+  position: absolute; box-sizing: border-box;
+  width: 150px; max-width: 42vw;
+  border: 1px solid var(--color-border); border-radius: var(--border-radius-md);
+  padding: 7px 9px; background: var(--color-surface);
+  display: flex; flex-direction: column; gap: 5px; align-items: center; text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.seat.pos-bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
+.seat.pos-top    { top: 0;    left: 50%; transform: translateX(-50%); }
+.seat.pos-left   { left: 0;   top: 50%; transform: translateY(-50%); width: 92px; }
+.seat.pos-right  { right: 0;  top: 50%; transform: translateY(-50%); width: 92px; }
 .seat.team0 { border-top: 3px solid var(--color-primary); }
 .seat.team1 { border-top: 3px solid var(--color-info); }
-.seat.me { background: var(--bg-elev); }
-.seat.turn { box-shadow: 0 0 0 2px var(--color-primary); }
+.seat.me { background: var(--bg-elev); box-shadow: 0 0 0 1px var(--color-primary) inset, var(--shadow-sm); }
+.seat.turn { box-shadow: 0 0 0 2px var(--color-primary), 0 0 16px rgba(205,163,80,.4); }
 .seat.disc { opacity: 0.6; }
-.seat-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.seat-name { font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; }
+.seat-name { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .you { color: var(--color-primary); font-weight: 400; }
-.seat-cards { display: flex; gap: 2px; }
-.seat-empty { color: var(--color-text-tertiary); font-size: 0.85rem; font-style: italic; }
-.ready-tag { color: var(--color-success); font-size: 0.8rem; font-weight: 600; }
+.seat-cards { display: flex; }
+.seat-cards :deep(.pcard) { margin-left: -14px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.seat-cards :deep(.pcard:first-child) { margin-left: 0; }
+.seat-empty { color: var(--color-text-tertiary); font-size: 0.82rem; font-style: italic; }
+.ready-tag { color: var(--color-success); font-size: 0.78rem; font-weight: 600; }
+.turn-dot { color: var(--color-primary); font-size: 0.7rem; }
 .muted { color: var(--color-text-tertiary); font-size: 0.8rem; }
-.seat-actions { display: flex; gap: 6px; margin-top: auto; flex-wrap: wrap; }
+.seat-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 button.sm { padding: 0.35em 0.7em; font-size: 0.8rem; }
 button.link { background: none; border: none; color: var(--color-primary); padding: 0 4px; font-size: 1rem; }
 button.link:hover { transform: none; background: none; }
 
-.center { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center; }
-.deck-info { display: flex; flex-direction: column; align-items: center; gap: 4px; }
-.deck-count { font-size: 0.78rem; color: var(--color-text-secondary); }
-.table-felt {
-  flex: 1; min-width: 240px; min-height: 120px; border-radius: var(--border-radius-lg);
-  background: radial-gradient(circle at 50% 40%, #3c6a3a, #2c4f2b);
-  border: 1px solid #244023; padding: 12px; position: relative;
-  box-shadow: inset 0 2px 14px rgba(0,0,0,.4);
+@media (max-width: 460px) {
+  .players-4 .felt { left: 70px; right: 70px; top: 84px; bottom: 84px; }
+  .seat { width: 124px; }
+  .seat.pos-left, .seat.pos-right { width: 66px; padding: 5px; }
+  .seat.pos-left .seat-name, .seat.pos-right .seat-name { font-size: 0.72rem; }
 }
-.table-label { position: absolute; top: 6px; left: 10px; font-size: 0.7rem; color: rgba(255,255,255,.5); }
-.table-cards { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; min-height: 96px; }
-.table-empty { color: rgba(255,255,255,.4); text-align: center; font-size: 1.5rem; line-height: 96px; }
-:deep(.pcard.last) { outline: 2px solid var(--color-warning); }
 
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
 .turn-bar { text-align: center; min-height: 24px; }
