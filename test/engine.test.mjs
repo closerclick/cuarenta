@@ -34,6 +34,11 @@ assert.ok(isValidCapture(C('5s'), [C('5h'), C('6d'), C('7c'), C('Jh')]), 'escale
 assert.ok(isValidCapture(C('5s'), [C('2h'), C('3d'), C('6c')]), 'base 2+3=5 y sube a 6')
 // hueco inválido: 5 y 7 sin 6
 assert.ok(!isValidCapture(C('5s'), [C('5h'), C('7c')]), 'hueco 5..7 inválido')
+// la SUMA solo vale en la BASE: 2,3,4 con un 4 NO se lleva 2+3 como peldaño 5
+assert.ok(!isValidCapture(C('4s'), [C('2h'), C('3d'), C('4c')]), '4 no levanta 2,3,4 (suma no es peldaño)')
+assert.ok(isValidCapture(C('4s'), [C('4c')]), '4 sí levanta el 4 (igualdad)')
+// pero la suma SÍ en la base: 5 = 2+3, y sigue al 6 (suelto)
+assert.ok(isValidCapture(C('5s'), [C('2h'), C('3d'), C('6c')]), '5 = 2+3 y sube al 6')
 // viejas consecutivas: J lleva J,Q,K
 assert.ok(isValidCapture(C('Js'), [C('Jh'), C('Qd'), C('Kc')]), 'J-Q-K consecutivas')
 // viejas no suman

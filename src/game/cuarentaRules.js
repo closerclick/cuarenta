@@ -63,35 +63,38 @@ export function shuffle (array, rng) {
 /** ¿El conjunto `selected` es una captura VÁLIDA para la carta `played`? */
 export function isValidCapture (played, selected) {
   if (!Array.isArray(selected) || selected.length === 0) return false
-  return fillsRun(selected.slice(), played.seq)
+  return fillsRun(selected.slice(), played.seq, true)
 }
 
 /** ¿`selected` forma una escalera contigua que ARRANCA en `base`? (robo de
  *  continuación: no hay carta resultado; debe empezar justo en `base`). */
 export function isRunFrom (selected, base) {
   if (!Array.isArray(selected) || selected.length === 0) return false
-  return fillsRun(selected.slice(), base)
+  return fillsRun(selected.slice(), base, true)
 }
 
 // Backtracking: ¿`cards` se reparte en peldaños consecutivos desde el valor `v`?
-function fillsRun (cards, v) {
+// La SUMA de 2 cartas SÓLO vale en la BASE (el valor de la carta tirada). Los
+// peldaños siguientes de la escalera son SIEMPRE cartas sueltas — no se puede
+// "subir" un peldaño con una suma (p. ej. 2,3,4 con un 4 NO se lleva el 2+3 como 5).
+function fillsRun (cards, v, atBase) {
   if (cards.length === 0) return true
   // peldaño v con UNA carta de ese seq
   for (let i = 0; i < cards.length; i++) {
     if (cards[i].seq === v) {
       const rest = cards.slice(0, i).concat(cards.slice(i + 1))
-      if (fillsRun(rest, v + 1)) return true
+      if (fillsRun(rest, v + 1, false)) return true
     }
   }
-  // peldaño v (numérico, ≤7) con una pareja de numéricas que sumen v
-  if (v <= 7) {
+  // suma de 2 numéricas que totalicen v: SÓLO en la base
+  if (atBase && v <= 7) {
     for (let i = 0; i < cards.length; i++) {
       if (cards[i].sum == null) continue
       for (let j = i + 1; j < cards.length; j++) {
         if (cards[j].sum == null) continue
         if (cards[i].sum + cards[j].sum === v) {
           const rest = cards.filter((_, k) => k !== i && k !== j)
-          if (fillsRun(rest, v + 1)) return true
+          if (fillsRun(rest, v + 1, false)) return true
         }
       }
     }
@@ -103,24 +106,24 @@ function fillsRun (cards, v) {
  *  que ya es una captura válida). Sirve para saber qué valor consecutivo queda
  *  «colgando» y por tanto robable. Devuelve el último valor cubierto. */
 export function runTop (selected, base) {
-  const top = topFrom(selected.slice(), base)
+  const top = topFrom(selected.slice(), base, true)
   return top == null ? base : top
 }
-function topFrom (cards, v) {
+function topFrom (cards, v, atBase) {
   if (cards.length === 0) return v - 1
   for (let i = 0; i < cards.length; i++) {
     if (cards[i].seq === v) {
-      const r = topFrom(cards.slice(0, i).concat(cards.slice(i + 1)), v + 1)
+      const r = topFrom(cards.slice(0, i).concat(cards.slice(i + 1)), v + 1, false)
       if (r != null) return r
     }
   }
-  if (v <= 7) {
+  if (atBase && v <= 7) {
     for (let i = 0; i < cards.length; i++) {
       if (cards[i].sum == null) continue
       for (let j = i + 1; j < cards.length; j++) {
         if (cards[j].sum == null) continue
         if (cards[i].sum + cards[j].sum === v) {
-          const r = topFrom(cards.filter((_, k) => k !== i && k !== j), v + 1)
+          const r = topFrom(cards.filter((_, k) => k !== i && k !== j), v + 1, false)
           if (r != null) return r
         }
       }
