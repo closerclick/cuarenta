@@ -45,7 +45,7 @@
             v-for="c in (game?.table || [])" :key="c.id" :card="c"
             :clickable="canSelectTable(c)"
             :selected="selected.has(c.id)"
-            :class="{ last: game?.claimCardId === c.id || (game?.lastPlay && game.lastPlay.card.id === c.id), result: game?.claimCardId === c.id }"
+            :class="{ last: game?.claimCardId === c.id || (game?.lastPlay && game.lastPlay.card.id === c.id), result: game?.claimCardId === c.id, carryable: carryOpen && c.seq === game?.carry?.value }"
             @play="toggleSelect(c)"
           />
         </transition-group>
@@ -60,6 +60,7 @@
       >
         <template v-if="seatOf(s.id)?.occupied">
           <div class="seat-head">
+            <span v-if="game?.dealer === s.id" class="data-badge" :title="t.dealerBadge">D</span>
             <span class="seat-name">{{ seatOf(s.id).name || t.noName }}<span v-if="s.id === mySeat" class="you"> ({{ t.you }})</span></span>
             <button
               v-if="seatOf(s.id).pubkey && seatOf(s.id).pubkey !== myPubkey"
@@ -318,6 +319,7 @@ const EV_TEXT = {
   caida: () => t.value.evCaida,
   limpia: () => t.value.evLimpia,
   caidaLimpia: () => t.value.evCaidaLimpia,
+  caidaEnRonda: () => t.value.evCaidaEnRonda,
   ronda: () => t.value.evRonda,
   dobleRonda: () => t.value.evDobleRonda,
   carton: (e) => t.value.evCarton(e.pts),
@@ -401,6 +403,8 @@ watch(() => game.value?.lastEvents, (evs) => {
 .table-empty { color: rgba(255,255,255,.4); font-size: 1.6rem; }
 :deep(.pcard.last) { outline: 2px solid var(--color-warning); }
 :deep(.pcard.result) { outline: 3px solid var(--color-error); box-shadow: 0 0 14px rgba(199,92,77,.6); }
+:deep(.pcard.carryable) { outline: 3px solid var(--color-warning); box-shadow: 0 0 16px rgba(214,162,58,.7); animation: carry-pulse 1s ease-in-out infinite; }
+@keyframes carry-pulse { 0%,100% { box-shadow: 0 0 10px rgba(214,162,58,.5); } 50% { box-shadow: 0 0 20px rgba(214,162,58,.9); } }
 
 /* asientos posicionados */
 .seat {
@@ -423,6 +427,7 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; }
 .seat-name { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .you { color: var(--color-primary); font-weight: 400; }
+.data-badge { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: var(--color-primary); color: #1a1408; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .seat-cards { display: flex; }
 .seat-cards :deep(.pcard) { margin-left: -14px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .seat-cards :deep(.pcard:first-child) { margin-left: 0; }

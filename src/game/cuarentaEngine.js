@@ -25,6 +25,15 @@ export function setPendingConfig (cfg) { _pendingConfig = cfg }
 
 const clone = (x) => JSON.parse(JSON.stringify(x))
 
+// Suma puntos respetando la regla del «38 que no juega»: una pareja con 38 ó 39
+// SÓLO suma por CAÍDA; ningún otro puntaje (limpia, ronda, cartón) le sirve para
+// llegar a 40. (El cartón además ya está bloqueado desde 30 por NO_CARTON_FROM.)
+function addPoints (s, team, pts, isCaida) {
+  if (pts <= 0) return
+  if (!isCaida && s.scores[team] >= 38) return
+  s.scores[team] += pts
+}
+
 function buildTeams (activeSeats) {
   const n = activeSeats.length
   const teams = n === 2
@@ -45,9 +54,11 @@ function dealRound (s, rng, setTurn) {
     const give = s.deck.splice(0, 5)
     s.hands[id] = give
     const ron = findRonda(s.hands[id])
-    if (ron && s.scores[s.teamOf[id]] < TARGET) {
-      s.scores[s.teamOf[id]] += ron.pts
-      s.lastEvents.push({ type: ron.type, seat: id, pts: ron.pts })
+    // ronda activa de la mano (para caída con/en ronda); se reevalúa cada reparto
+    s.rondaRank[id] = ron ? ron.r : null
+    if (ron) {
+      addPoints(s, s.teamOf[id], ron.pts, false)
+      s.lastEvents.push({ type: ron.type, seat: id, pts: ron.pts, r: ron.r })
     }
   }
   s.lastPlay = null
@@ -143,6 +154,7 @@ function makeInitialState (rng) {
     // gana la data. picks: { seat: { index, card } }.
     drawPile: shuffle(makeDeck(), rng),
     picks: {},
+    rondaRank: {}, // seat → rango de su ronda activa esta mano (o null)
     claimSeat: null, // quién tiró la carta que quedó por levantar
     claimCardId: null, // id de esa carta (el "resultado")
     // continuación de escalera que quedó «colgando» tras un levante: robable por
@@ -175,12 +187,17 @@ function applyCapture (s, team, seat, resultCard, capturedCards, prevLast, allow
   s.lastCapturer = seat
   let pts = 0
   const caida = !!(allowCaida && prevLast && prevLast.card.r === resultCard.r && capIds.has(prevLast.card.id))
-  if (caida) pts += 2
+  // Caída normal = 2. Si la caída se hace CON la carta de tu propia ronda
+  // ("caída en ronda") suma 2 más (total 4). Tener ronda y caer con otra carta
+  // ("caída con ronda") es caída normal (2).
+  const seatRonda = s.rondaRank ? s.rondaRank[seat] : null
+  const caidaEnRonda = caida && seatRonda != null && seatRonda === resultCard.r
+  if (caida) { const cp = caidaEnRonda ? 4 : 2; addPoints(s, team, cp, true); pts += cp }
   const limpia = s.table.length === 0
-  if (limpia) pts += 2
-  if (pts && s.scores[team] < TARGET) s.scores[team] += pts
+  if (limpia) { addPoints(s, team, 2, false); pts += 2 }
   s.lastEvents.push({
-    type: caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
+    type: caidaEnRonda ? 'caidaEnRonda'
+      : caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
     seat, pts, n: capturedCards.length + 1,
     // cartas involucradas (para la cinemática del levante): la que ejecuta + las
     // que se lleva. Son cartas públicas (estaban en la mesa), seguras de difundir.

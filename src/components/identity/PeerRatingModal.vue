@@ -4,7 +4,7 @@
       <button class="close-btn" @click="$emit('close')" aria-label="Close">×</button>
 
       <h3 class="modal-title">{{ displayName }}</h3>
-      <div class="modal-token">{{ t.tokenLabel }}: <code>{{ info.token }}</code></div>
+      <div class="modal-token">{{ t.tokenLabel }}: <code>{{ shortToken }}</code></div>
 
       <div v-if="!info.pubkey" class="muted">
         {{ t.waitingVerify }}
@@ -54,6 +54,17 @@ const customNickname = ref('')
 const profileEl = ref(null)
 
 const displayName = computed(() => props.info?.peer?.nickname || props.info?.nickname || props.info?.token || '')
+
+// El "token" del rival es su pubkey (JWK). Mostrar una huella corta y legible,
+// no el JSON crudo.
+const shortToken = computed(() => {
+  const tk = props.info?.token
+  if (!tk) return '—'
+  const s = String(tk)
+  if (s.length <= 24) return s
+  try { const j = JSON.parse(s); if (j.x) return (j.x.slice(0, 10) + '…' + j.x.slice(-8)) } catch (_) {}
+  return s.slice(0, 12) + '…' + s.slice(-8)
+})
 
 const suspicion = computed(() => {
   const stats = props.info?.peer?.queryStats

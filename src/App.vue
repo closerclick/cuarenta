@@ -2,6 +2,7 @@
   <div class="app">
     <!-- Topbar: marca · acciones · moneda de support -->
     <header class="topbar">
+      <closer-click-back class="cc-back"></closer-click-back>
       <div class="brand">
         <img :src="icon" alt="" class="brand-logo" />
         <div class="brand-text">
@@ -83,11 +84,18 @@ import LobbyView from './components/lobby/LobbyView.vue'
 import CuarentaGame from './components/game/CuarentaGame.vue'
 import UserSettingsModal from './components/identity/UserSettingsModal.vue'
 import PeerRatingModal from './components/identity/PeerRatingModal.vue'
+import { useBackLayer } from '@closerclick/closer-click-nav/vue'
 import icon from './assets/icon.svg'
 
 const settingsOpen = ref(false)
 const rulesOpen = ref(false)
 const ratingTarget = ref(null)
+
+// Volver unificado: el botón físico / chevron cierra el modal abierto antes de
+// salir hacia closer.click.
+useBackLayer(settingsOpen)
+useBackLayer(rulesOpen)
+useBackLayer(ratingTarget, { onClose: () => { ratingTarget.value = null } })
 const nickDraft = ref(L.myNickname.value || '')
 const nickInput = ref(null)
 
@@ -130,6 +138,7 @@ function bindMyProfile (el) {
   if (!el) return
   L.getProfileProvider().then((p) => { if (p) el.provider = p })
 }
+useBackLayer(myProfilePk, { onClose: () => { myProfilePk.value = null } })
 // Tema del perfil acorde a Cuarenta (mismas variables --color-* de la app).
 const profileTheme = {
   '--ccp-bg': 'var(--color-card-bg)', '--ccp-bg-2': 'var(--color-surface)',
@@ -190,6 +199,7 @@ onMounted(() => {
   background: var(--color-header-bg); border-bottom: 1px solid var(--color-border);
   position: sticky; top: 0; z-index: 50;
 }
+.cc-back { color: var(--color-text); --cc-back-size: 34px; margin-left: -4px; flex-shrink: 0; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-logo { width: 36px; height: 36px; border-radius: 9px; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }

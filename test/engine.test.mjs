@@ -241,4 +241,37 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.equal(s.turn, 'p1', 'juega el de la derecha de la data')
 }
 
-console.log('OK — corte por data, captura, robar, carry, fatal, stale-rob y 40 partidas (2P/4P).')
+// ── regla del 38 «que no juega»: desde 38 solo suma caída ──────
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const e = makeCuarentaEngine(); const rng = mulberry32(11)
+  let s = e.initialState(rng); let ci = 0
+  for (const sid of s.activeSeats) s = e.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
+  const seat = s.turn; const team = s.teamOf[seat]
+  s.scores[team] = 38
+  const hc = s.hands[seat][0]
+  // mesa con una carta del mismo rango (captura por igualdad → limpia), sin lastPlay
+  s.table = [{ id: hc.r + 'Xh', r: hc.r, s: 'h', seq: hc.seq, sum: hc.sum }]
+  s.lastPlay = null
+  const ns = e.reducer(s, { type: 'play', card: hc.id, captured: [hc.r + 'Xh'] }, { seat, seats: {}, rng, now: 0 })
+  assert.equal(ns.scores[team], 38, '38: la limpia (no-caída) no suma')
+}
+
+// ── caída en ronda = caída + 2 (total 4) ───────────────────────
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const e = makeCuarentaEngine(); const rng = mulberry32(13)
+  let s = e.initialState(rng); let ci = 0
+  for (const sid of s.activeSeats) s = e.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
+  const seat = s.turn; const team = s.teamOf[seat]
+  s.scores = [0, 0]
+  const hc = s.hands[seat][0]
+  s.rondaRank[seat] = hc.r // tengo ronda de ese rango
+  const rival = { id: hc.r + 'Zc', r: hc.r, s: 'c', seq: hc.seq, sum: hc.sum }
+  const extra = { id: 'Kd2', r: 'K', s: 'd', seq: 10, sum: null }
+  s.table = [rival, extra]; s.lastPlay = { seat: 'p2', card: rival } // el rival acaba de tirar
+  const ns = e.reducer(s, { type: 'play', card: hc.id, captured: [rival.id] }, { seat, seats: {}, rng, now: 0 })
+  assert.equal(ns.scores[team], 4, 'caída en ronda = 4 (sin limpia, queda la K)')
+}
+
+console.log('OK — corte, captura, robar, carry, fatal, stale-rob, 38, caída-en-ronda y 40 partidas.')
