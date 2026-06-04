@@ -52,14 +52,9 @@
           </div>
           <div class="seat-status">
             <span v-if="playing && game?.turn === s.id" class="turn-dot">●</span>
-            <span v-if="!playing && seatOf(s.id).ready" class="ready-tag">✓ {{ t.ready }}</span>
-            <span v-else-if="!playing" class="muted">…</span>
             <span v-if="seatOf(s.id).status === 'disconnected'" class="muted">⏸</span>
           </div>
           <div class="seat-actions" v-if="s.id === mySeat && !playing">
-            <button class="sm" :class="{ success: seatOf(s.id).ready }" @click="setReady(!seatOf(s.id).ready)" :data-testid="'ready-' + s.id">
-              {{ seatOf(s.id).ready ? t.notReady : t.ready }}
-            </button>
             <button class="sm" @click="leaveSeat" :data-testid="'leave-seat-' + s.id">{{ t.leaveSeat }}</button>
           </div>
         </template>
@@ -76,7 +71,6 @@
     <div class="banner" v-if="!playing && !finished">
       <template v-if="paused">⏸ {{ t.paused }}</template>
       <template v-else-if="occupiedCount < 2">{{ t.waitingPlayers }}</template>
-      <template v-else-if="!allReady">{{ t.waitingReady }}</template>
       <template v-else-if="isHost">
         <button class="primary" :disabled="!canStart" @click="startGame" data-testid="start-game">{{ t.startGame }}</button>
         <small v-if="!canStart" class="muted">{{ t.needTwoOrFour }}</small>
@@ -152,8 +146,8 @@ defineEmits(['leave', 'rate'])
 
 const {
   STATUS, game, status, result, seats, seatIds, mySeat, myPubkey, isHost,
-  isMyTurn, occupiedCount, allReady, canStart,
-  takeSeat, leaveSeat, setReady, startGame, playCard, resign
+  isMyTurn, occupiedCount, canStart,
+  takeSeat, leaveSeat, startGame, playCard, resign
 } = L
 
 const confirmResign = ref(false)
@@ -266,10 +260,12 @@ watch(() => game.value?.lastEvents, (evs) => {
 }
 .felt {
   position: absolute;
-  border-radius: 50% / 42%;
-  background: radial-gradient(circle at 50% 42%, #3f7a3c, #234b22 72%, #1c3c1b);
-  border: 6px solid #5a431f;
-  box-shadow: inset 0 4px 26px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.35);
+  border-radius: 14px;
+  background: linear-gradient(160deg, #3a6f37, #2c5429 70%, #264a24);
+  /* marco de madera (nogal) — mesa de casa, no de casino */
+  border: 9px solid #5a431f;
+  outline: 2px solid #3a2c16;
+  box-shadow: inset 0 3px 22px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
   display: flex; align-items: center; justify-content: center;
 }
 /* deja sitio a los asientos: 2 jug. arriba/abajo; 4 también a los lados */

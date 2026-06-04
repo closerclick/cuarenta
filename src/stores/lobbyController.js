@@ -334,11 +334,11 @@ const allReady = computed(() => {
   const occ = seatIds.value.map(id => seats.value?.[id]).filter(x => x?.occupied)
   return occ.length > 0 && occ.every(x => x.ready)
 })
-// La mesa arranca cuando está COMPLETA (todos los asientos de la sala ocupados) y
-// todos listos. El tamaño (2 ó 4) ya está fijado por la sala.
+// La mesa arranca cuando está COMPLETA (todos los asientos de la sala ocupados).
+// Sentarse ya cuenta como estar listo: no hay paso de "listo".
 const canStart = computed(() => isHost.value && status.value === STATUS.WAITING &&
   (tableSize.value === 2 || tableSize.value === 4) &&
-  occupiedCount.value === tableSize.value && allReady.value)
+  occupiedCount.value === tableSize.value)
 
 export const lobbyController = {
   SEATS, STATUS,
