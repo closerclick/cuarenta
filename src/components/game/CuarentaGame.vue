@@ -27,7 +27,10 @@
         <transition-group name="lay" tag="div" class="table-cards">
           <PlayingCard
             v-for="c in (game?.table || [])" :key="c.id" :card="c"
-            :class="{ last: game?.lastPlay && game.lastPlay.card.id === c.id }"
+            :clickable="canSelectTable(c)"
+            :selected="selected.has(c.id)"
+            :class="{ last: game?.claimCardId === c.id || (game?.lastPlay && game.lastPlay.card.id === c.id), result: game?.claimCardId === c.id }"
+            @play="toggleSelect(c)"
           />
         </transition-group>
         <div v-if="!(game?.table || []).length" class="table-empty">—</div>
@@ -78,22 +81,35 @@
       <template v-else>{{ t.waitingHostStart }}</template>
     </div>
 
-    <!-- Turno -->
+    <!-- Turno / claim -->
     <div class="turn-bar" v-if="playing">
-      <span v-if="isMyTurn" class="my-turn" data-testid="my-turn">▶ {{ t.yourTurn }}</span>
-      <span v-else class="muted">{{ t.turnOf(seatOf(game?.turn)?.name || t.noName) }}</span>
+      <template v-if="claimOpen">
+        <span class="claim-hint" data-testid="claim-hint">⚠ {{ mySeat ? t.claimHint : t.claimWaiting(seatOf(game?.claimSeat)?.name || t.noName) }}</span>
+        <button v-if="mySeat" class="primary sm" :disabled="!selected.size" @click="onRob" data-testid="rob-btn">{{ t.rob }}</button>
+      </template>
+      <template v-else>
+        <span v-if="isMyTurn" class="my-turn" data-testid="my-turn">▶ {{ t.yourTurn }}</span>
+        <span v-else class="muted">{{ t.turnOf(seatOf(game?.turn)?.name || t.noName) }}</span>
+      </template>
+      <button v-if="selected.size" class="link clear" @click="selected.clear()" data-testid="clear-sel">{{ t.clearSel }} ({{ selected.size }})</button>
     </div>
 
     <!-- Mi mano -->
     <div class="hand" v-if="game?.myHand?.length" data-testid="my-hand">
       <PlayingCard
         v-for="c in game.myHand" :key="c.id" :card="c"
-        :clickable="isMyTurn" @play="onPlay"
+        :clickable="isMyTurn && !claimOpen" @play="onThrow"
       />
     </div>
     <div class="hand spectator-note" v-else-if="playing && !mySeat">
       {{ t.spectating }}
     </div>
+    <p class="play-hint muted" v-if="isMyTurn && !claimOpen">{{ t.selectHint }}</p>
+
+    <!-- Toast central de error fatal ("pasa la mano con 10") -->
+    <transition name="fault">
+      <div v-if="faultMsg" class="fault-toast" data-testid="fault-toast">{{ faultMsg }}</div>
+    </transition>
 
     <!-- Toasts de puntos -->
     <div class="toasts" aria-live="polite">
@@ -137,7 +153,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { t } from '@/i18n'
 import { lobbyController as L } from '@/stores/lobbyController'
 import PlayingCard from './PlayingCard.vue'
@@ -147,13 +163,38 @@ defineEmits(['leave', 'rate'])
 const {
   STATUS, game, status, result, seats, seatIds, mySeat, myPubkey, isHost,
   isMyTurn, occupiedCount, canStart,
-  takeSeat, leaveSeat, startGame, playCard, resign
+  takeSeat, leaveSeat, startGame, playCard, rob, resign
 } = L
 
 const confirmResign = ref(false)
 const playing = computed(() => status.value === STATUS.PLAYING)
 const finished = computed(() => status.value === STATUS.ENDED || !!game.value?.finished)
 const paused = computed(() => status.value === STATUS.PAUSED)
+const claimOpen = computed(() => playing.value && game.value?.phase === 'claim')
+
+// ── selección manual de cartas de la mesa ───────────────────────────
+const selected = reactive(new Set())
+function canSelectTable (c) {
+  if (!playing.value || !mySeat.value) return false
+  if (claimOpen.value) return c.id !== game.value?.claimCardId // no se elige la carta tirada
+  return isMyTurn.value // en mi turno selecciono la combinación
+}
+function toggleSelect (c) {
+  if (!canSelectTable(c)) return
+  if (selected.has(c.id)) selected.delete(c.id); else selected.add(c.id)
+}
+function onThrow (card) {
+  if (!isMyTurn.value || claimOpen.value) return
+  playCard(card.id, [...selected])
+  selected.clear()
+}
+function onRob () {
+  if (!claimOpen.value || !mySeat.value || !selected.size) return
+  rob([...selected])
+  selected.clear()
+}
+// limpiar selección cuando cambia el turno/fase (otro jugó o se resolvió)
+watch(() => [game.value?.turn, game.value?.phase, game.value?.table?.length], () => selected.clear())
 
 const seatOf = (id) => seats.value?.[id] || null
 
@@ -211,7 +252,6 @@ const rivalToRate = computed(() => {
   return null
 })
 
-function onPlay (card) { if (isMyTurn.value) playCard(card.id) }
 function doResign () { confirmResign.value = false; resign() }
 
 // ── toasts de eventos de puntos ─────────────────────────────────────
@@ -226,9 +266,17 @@ const EV_TEXT = {
   carton: (e) => t.value.evCarton(e.pts),
   chica: () => t.value.evChica
 }
+const faultMsg = ref('')
+let faultTimer = null
 watch(() => game.value?.lastEvents, (evs) => {
   if (!Array.isArray(evs)) return
   for (const e of evs) {
+    if (e.type === 'fault') {
+      faultMsg.value = t.value.evFault
+      if (faultTimer) clearTimeout(faultTimer)
+      faultTimer = setTimeout(() => { faultMsg.value = '' }, 3200)
+      continue
+    }
     const fn = EV_TEXT[e.type]
     if (!fn) continue
     const id = ++toastSeq
@@ -277,6 +325,7 @@ watch(() => game.value?.lastEvents, (evs) => {
 .table-cards { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; justify-content: center; max-width: 86%; }
 .table-empty { color: rgba(255,255,255,.4); font-size: 1.6rem; }
 :deep(.pcard.last) { outline: 2px solid var(--color-warning); }
+:deep(.pcard.result) { outline: 3px solid var(--color-error); box-shadow: 0 0 14px rgba(199,92,77,.6); }
 
 /* asientos posicionados */
 .seat {
@@ -319,11 +368,23 @@ button.link:hover { transform: none; background: none; }
 }
 
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
-.turn-bar { text-align: center; min-height: 24px; }
+.turn-bar { text-align: center; min-height: 24px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .my-turn { color: var(--color-primary); font-weight: 700; }
+.claim-hint { color: var(--color-warning); font-weight: 600; }
+button.link.clear { color: var(--color-text-secondary); }
 
 .hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 8px; min-height: 96px; }
 .spectator-note { color: var(--color-text-secondary); align-items: center; }
+.play-hint { text-align: center; font-size: 0.8rem; margin: -4px 0 0; }
+
+.fault-toast {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 1200; background: var(--color-error); color: #fff;
+  padding: 18px 30px; border-radius: 14px; font-family: var(--font-headline);
+  font-weight: 700; font-size: 1.5rem; text-align: center; box-shadow: var(--shadow-lg);
+}
+.fault-enter-active, .fault-leave-active { transition: opacity .25s ease, transform .25s ease; }
+.fault-enter-from, .fault-leave-to { opacity: 0; transform: translate(-50%, -50%) scale(.8); }
 
 .controls { display: flex; gap: 8px; justify-content: center; }
 

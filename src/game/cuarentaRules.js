@@ -50,57 +50,62 @@ export function shuffle (array, rng) {
   return a
 }
 
-/**
- * Resuelve qué cartas de la mesa captura `played` (el "levante"). Tres formas:
- *  1) Igualdad + escalera: si hay en la mesa una carta del MISMO rango, se lleva
- *     todas las iguales y luego sube en escalera consecutiva (seq+1, seq+2…)
- *     mientras existan (ej.: tiras 3 y te llevas 3,4,5,6,7,J si están).
- *  2) Por suma: si `played` es numérica (sum≠null), captura el subconjunto de
- *     cartas numéricas de la mesa que sumen su valor (ej.: tiras 7, comes 3+4).
- *     Se elige el subconjunto de MAYOR cantidad de cartas (más cartón).
- * Devuelve el array de cartas capturadas (referencias del array `table`), o [].
- */
-export function resolveCapture (table, played) {
-  // 1) igualdad + escalera
-  const byEqual = table.filter(c => c.r === played.r)
-  if (byEqual.length) {
-    const captured = byEqual.slice()
-    let v = played.seq + 1
-    while (true) {
-      const next = table.filter(c => c.seq === v && !captured.includes(c))
-      if (!next.length) break
-      captured.push(...next)
-      v++
-    }
-    return captured
-  }
-  // 2) por suma (sólo numéricas)
-  if (played.sum != null) {
-    const nums = table.filter(c => c.sum != null)
-    const subset = largestSubsetSum(nums, played.sum)
-    if (subset && subset.length) return subset
-  }
-  return []
+// ── Captura ("levante") — selección MANUAL del jugador ───────────────
+// El jugador elige las cartas de la mesa y bota la carta que da el resultado.
+// Una tirada levanta UNA escalera consecutiva que arranca en el valor de la carta
+// tirada (seq) y sube de uno en uno (…5 6 7 J Q K; la J sigue al 7). Cada peldaño
+// se cubre con:
+//   · una carta de ese valor, O
+//   · (sólo valores numéricos A–7) una pareja de cartas numéricas que SUMEN ese
+//     valor (suma de exactamente 2 cartas; las viejas J/Q/K no suman).
+// La escalera debe ser contigua desde la base; el jugador puede parar donde quiera.
+
+/** ¿El conjunto `selected` es una captura VÁLIDA para la carta `played`? */
+export function isValidCapture (played, selected) {
+  if (!Array.isArray(selected) || selected.length === 0) return false
+  return fillsRun(selected.slice(), played.seq)
 }
 
-/** Subconjunto de mayor cardinalidad cuyas `sum` totalicen `target`. Backtracking
- *  (la mesa nunca tiene muchas cartas numéricas). Devuelve null si no hay. */
-export function largestSubsetSum (cards, target) {
-  let best = null
-  const choose = (i, acc, sum) => {
-    if (sum === target && acc.length) {
-      if (!best || acc.length > best.length) best = acc.slice()
-      // no return: podría haber otro subconjunto más grande
-    }
-    if (sum >= target || i >= cards.length) return
-    for (let k = i; k < cards.length; k++) {
-      acc.push(cards[k])
-      choose(k + 1, acc, sum + cards[k].sum)
-      acc.pop()
+// Backtracking: ¿`cards` se reparte en peldaños consecutivos desde el valor `v`?
+function fillsRun (cards, v) {
+  if (cards.length === 0) return true
+  // peldaño v con UNA carta de ese seq
+  for (let i = 0; i < cards.length; i++) {
+    if (cards[i].seq === v) {
+      const rest = cards.slice(0, i).concat(cards.slice(i + 1))
+      if (fillsRun(rest, v + 1)) return true
     }
   }
-  choose(0, [], 0)
-  return best
+  // peldaño v (numérico, ≤7) con una pareja de numéricas que sumen v
+  if (v <= 7) {
+    for (let i = 0; i < cards.length; i++) {
+      if (cards[i].sum == null) continue
+      for (let j = i + 1; j < cards.length; j++) {
+        if (cards[j].sum == null) continue
+        if (cards[i].sum + cards[j].sum === v) {
+          const rest = cards.filter((_, k) => k !== i && k !== j)
+          if (fillsRun(rest, v + 1)) return true
+        }
+      }
+    }
+  }
+  return false
+}
+
+/** ¿Existe ALGUNA captura posible al tirar `played` sobre `table`? (basta con que
+ *  el peldaño base —igual o suma de 2— se pueda cubrir). Define si se abre la
+ *  ventana de "robar" y si el turno queda en espera. */
+export function captureExists (table, played) {
+  if (table.some(c => c.seq === played.seq)) return true
+  if (played.sum != null) {
+    const nums = table.filter(c => c.sum != null)
+    for (let i = 0; i < nums.length; i++) {
+      for (let j = i + 1; j < nums.length; j++) {
+        if (nums[i].sum + nums[j].sum === played.seq) return true
+      }
+    }
+  }
+  return false
 }
 
 /**
@@ -132,7 +137,10 @@ export function findRonda (hand) {
 }
 
 /** Puntos de las jugadas especiales (para UI / referencia). */
-export const POINTS = { caida: 2, limpia: 2, caidaLimpia: 4, ronda: 4, dobleRonda: 8 }
+export const POINTS = { caida: 2, limpia: 2, caidaLimpia: 4, ronda: 4, dobleRonda: 8, fault: 10 }
+
+/** Castigo por levantar una combinación inválida ("pasa la mano con 10"). */
+export const FAULT_POINTS = 10
 
 /** Umbral de la chica y reglas de tope. */
 export const TARGET = 40

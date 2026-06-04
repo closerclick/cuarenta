@@ -254,10 +254,20 @@ function startGame () {
   return r.start()
 }
 
-function playCard (cardId) {
+// Tira una carta; `captured` = ids de cartas de la mesa que se quieren levantar
+// (vacío = sólo botar). Combinación inválida = error fatal (lo decide el motor).
+function playCard (cardId, captured = []) {
   const r = room.value
   if (!r) return false
-  r.action({ type: 'play', card: cardId })
+  r.action({ type: 'play', card: cardId, captured })
+  return true
+}
+// Robar: durante la ventana de claim, levantar la carta que quedó seleccionando
+// la combinación (`captured` = ids de la mesa, sin la carta tirada).
+function rob (captured = []) {
+  const r = room.value
+  if (!r) return false
+  r.action({ type: 'rob', captured })
   return true
 }
 function resign () { room.value?.action({ type: 'resign' }); return true }
@@ -352,7 +362,7 @@ export const lobbyController = {
   // nickname requerido
   hasNick, nickModalOpen, requireNick, submitNick, cancelNick,
   // asientos / juego
-  takeSeat, leaveSeat, setReady, spectate, startGame, playCard, resign,
+  takeSeat, leaveSeat, setReady, spectate, startGame, playCard, rob, resign,
   game, status, result, seats, seatIds, tableSize, spectators, mySeat, isMyTurn,
   occupiedCount, allReady, canStart
 }
