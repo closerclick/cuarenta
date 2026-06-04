@@ -10,7 +10,6 @@
         <div class="team-pts" :data-testid="'score-team-' + ti">{{ teamScore(ti) }}<small>/40</small></div>
         <div class="team-sub">
           <span class="chip">{{ t.chicas }}: {{ teamChicas(ti) }}</span>
-          <span class="chip" v-if="playing">{{ t.captured }}: {{ teamCards(ti) }}</span>
         </div>
       </div>
     </div>
@@ -146,6 +145,23 @@
             </div>
           </div>
           <div class="data-msg">{{ t.dataWon(seatOf(dataReveal.dealer)?.name || t.noName) }}</div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Conteo del cartón al final de la mano (cuenta una por una, ~5 s) -->
+    <transition name="cine">
+      <div v-if="countCine" class="cine" data-testid="count-cine">
+        <div class="cine-box count-box">
+          <div class="count-title">{{ t.countTitle }}</div>
+          <div class="count-rows">
+            <div v-for="ti in [0, 1]" :key="ti" class="count-row">
+              <span class="count-team">{{ teamLabel(ti) }}</span>
+              <span class="count-num">{{ countCine.shown[ti] }}</span>
+              <span class="count-cards">{{ t.countCards }}</span>
+              <span class="count-pts" v-if="countCine.done">{{ countCine.points[ti] ? '+' + countCine.points[ti] : t.countNone }}</span>
+            </div>
+          </div>
         </div>
       </div>
     </transition>
@@ -358,7 +374,6 @@ const EV_TEXT = {
   caidaEnRonda: () => t.value.evCaidaEnRonda,
   ronda: () => t.value.evRonda,
   dobleRonda: () => t.value.evDobleRonda,
-  carton: (e) => t.value.evCarton(e.pts),
   chica: () => t.value.evChica
 }
 const faultMsg = ref('')
@@ -369,7 +384,33 @@ let dataTimer = null
 // Cinemática del levante (carta ejecutora + cartas que se lleva).
 const captureCine = ref(null)
 let cineTimer = null
-const CAPTURE_TYPES = ['levante', 'caida', 'limpia', 'caidaLimpia']
+const CAPTURE_TYPES = ['levante', 'caida', 'limpia', 'caidaLimpia', 'caidaEnRonda']
+// Cinemática de conteo del cartón al final de cada mano (~5 s).
+const countCine = ref(null)
+let countTimers = []
+function clearCount () { countTimers.forEach(clearInterval); countTimers = [] }
+function startCount (e) {
+  clearCount()
+  const counts = e.counts || [0, 0]
+  const points = e.points || [0, 0]
+  countCine.value = { counts, points, shown: [0, 0], done: false }
+  const target = Math.max(counts[0], counts[1], 1)
+  const step = Math.max(70, Math.floor(4500 / target)) // ~4.5 s contando una por una
+  let i = 0
+  const iv = setInterval(() => {
+    i++
+    const shown = [Math.min(i, counts[0]), Math.min(i, counts[1])]
+    countCine.value = { counts, points, shown, done: false }
+    if (i >= target) {
+      clearInterval(iv)
+      countCine.value = { counts, points, shown: counts.slice(), done: true }
+      const t2 = setTimeout(() => { countCine.value = null }, 1800)
+      countTimers.push(t2)
+    }
+  }, step)
+  countTimers.push(iv)
+}
+onBeforeUnmount(clearCount)
 watch(() => game.value?.lastEvents, (evs) => {
   if (!Array.isArray(evs)) return
   for (const e of evs) {
@@ -379,6 +420,7 @@ watch(() => game.value?.lastEvents, (evs) => {
       dataTimer = setTimeout(() => { dataReveal.value = null }, 3400)
       continue
     }
+    if (e.type === 'count') { startCount(e); continue }
     if (e.type === 'fault') {
       faultMsg.value = t.value.evFault
       if (faultTimer) clearTimeout(faultTimer)
@@ -548,6 +590,15 @@ button.link.clear { color: var(--color-text-secondary); }
 .data-pick.won :deep(.pcard) { outline: 3px solid var(--color-primary); box-shadow: 0 0 18px rgba(205,163,80,.7); }
 .data-name { font-size: 0.8rem; color: var(--color-text); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .data-msg { margin-top: 12px; text-align: center; font-family: var(--font-headline); font-weight: 700; color: var(--color-primary); }
+/* conteo del cartón */
+.count-box { min-width: 260px; }
+.count-title { font-family: var(--font-headline); font-weight: 700; color: var(--color-primary); margin-bottom: 10px; text-align: center; }
+.count-rows { display: flex; flex-direction: column; gap: 10px; }
+.count-row { display: flex; align-items: baseline; gap: 8px; }
+.count-team { flex: 1; color: var(--color-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.count-num { font-family: var(--font-headline); font-weight: 700; font-size: 1.8rem; color: var(--color-text); min-width: 1.6em; text-align: right; }
+.count-cards { color: var(--color-text-secondary); font-size: 0.8rem; }
+.count-pts { font-weight: 700; color: var(--color-secondary); min-width: 2em; text-align: right; }
 @keyframes cine-float {
   0%   { transform: scale(.6) translateY(20px); opacity: 0; }
   14%  { transform: scale(1) translateY(0); opacity: 1; }

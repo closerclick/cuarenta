@@ -110,15 +110,16 @@ function refill (s, rng) {
     s.lastEvents.push({ type: 'sweep', seat: s.lastCapturer, n: s.table.length })
     s.table = []
   }
+  // Conteo del cartón de ambos equipos (para la cinemática de fin de mano).
+  const counts = [s.capturedCount[0], s.capturedCount[1]]
+  const points = [0, 0]
   for (const team of [0, 1]) {
     if (s.scores[team] < NO_CARTON_FROM) {
       const pts = carton(s.capturedCount[team])
-      if (pts) {
-        s.scores[team] += pts
-        s.lastEvents.push({ type: 'carton', team, pts, cards: s.capturedCount[team] })
-      }
+      if (pts) { addPoints(s, team, pts, false); points[team] = pts }
     }
   }
+  s.lastEvents.push({ type: 'count', counts, points })
   const w = s.scores.findIndex(x => x >= TARGET)
   if (w >= 0) { endChica(s, w, rng); return }
   reshuffleAndDeal(s, rng)

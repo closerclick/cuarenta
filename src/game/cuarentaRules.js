@@ -149,17 +149,13 @@ export function captureExists (table, played) {
 }
 
 /**
- * Conteo del "cartón" al agotarse la baraja: puntos por cartas capturadas.
- * Regla popular: 20 cartas = 6 puntos, y de ahí +1 por cada 2 cartas; si el conteo
- * es impar se redondea hacia arriba (par). Menos de 20 cartas no da cartón.
- *   evenCount = redondeo par;  puntos = evenCount/2 - 4  (mín 0, sólo si ≥ 20).
- * (Función única y comentada: es el punto más variable entre fuentes; fácil de
- *  afinar luego sin tocar el resto del motor.)
+ * Conteo del "cartón" al agotarse la baraja (las 40 cartas jugadas): puntos por
+ * cartas capturadas. 20 cartas = 6 puntos y +1 por cada carta adicional
+ * (21 = 7, 22 = 8, 23 = 9, …, 40 = 26). Menos de 20 cartas: nada (si ninguno
+ * llega a 20, nadie suma).
  */
 export function carton (cardCount) {
-  if (cardCount < 20) return 0 // «del 20 en adelante»
-  const even = cardCount % 2 ? cardCount + 1 : cardCount
-  return even / 2 - 4
+  return cardCount >= 20 ? cardCount - 14 : 0
 }
 
 /** ¿La mano recién repartida (5 cartas) trae ronda? 3 iguales = ronda (4 pts),

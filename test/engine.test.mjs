@@ -16,7 +16,7 @@ function mulberry32 (a) {
 
 // ── reglas básicas ──────────────────────────────────────────────
 assert.equal(makeDeck().length, 40, '40 cartas')
-assert.equal(carton(19), 0); assert.equal(carton(20), 6); assert.equal(carton(21), 7); assert.equal(carton(40), 16)
+assert.equal(carton(19), 0); assert.equal(carton(20), 6); assert.equal(carton(21), 7); assert.equal(carton(22), 8); assert.equal(carton(40), 26)
 
 const deck = makeDeck()
 const C = (id) => deck.find(c => c.id === id)
