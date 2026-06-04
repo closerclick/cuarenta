@@ -407,10 +407,20 @@ const leadTeam = computed(() => {
 const myTeam = computed(() => (mySeat.value != null ? game.value?.teamOf?.[mySeat.value] : null))
 const iWon = computed(() => myTeam.value != null && game.value?.winnerTeam === myTeam.value)
 
-// Todos los demás jugadores (con identidad) con quienes jugué: se califican uno
-// por uno, cada calificación independiente (rating normal).
-const ratablePlayers = computed(() =>
-  seatIds.value.map(seatOf).filter(s => s?.occupied && s.pubkey && s.pubkey !== myPubkey.value))
+// Co-jugadores con quienes jugué (con identidad), para calificar al final uno por
+// uno. Se ACUMULAN durante la partida: al terminar, los asientos pueden vaciarse
+// (el host reabre), así que no basta con mirar la ocupación al final.
+const seenPlayers = reactive(new Map())
+watch(() => [status.value, game.value?.turn, JSON.stringify(seats.value)], () => {
+  if (status.value !== STATUS.PLAYING && status.value !== STATUS.ENDED) return
+  for (const id of seatIds.value) {
+    const s = seatOf(id)
+    if (s?.occupied && s.pubkey && s.pubkey !== myPubkey.value) {
+      seenPlayers.set(s.pubkey, { id, pubkey: s.pubkey, name: s.name, occupied: true })
+    }
+  }
+}, { immediate: true })
+const ratablePlayers = computed(() => [...seenPlayers.values()])
 
 function doResign () { confirmResign.value = false; resign() }
 
