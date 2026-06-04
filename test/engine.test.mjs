@@ -186,4 +186,25 @@ for (let seed = 1; seed <= 20; seed++) {
   }
 }
 
-console.log('OK — captura, robar, carry, fatal, stale-rob ignorado y 40 partidas (2P/4P).')
+// ── robo tardío de carry: otro robó el 6, mi "6,7" llega tarde → IGNORADO ──
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const engine = makeCuarentaEngine()
+  const rng = mulberry32(5)
+  const s = engine.initialState(rng)
+  // forzamos un estado con carry ya AVANZADO a 7 (alguien robó el 6) y el 7 en mesa
+  s.phase = 'play'
+  s.table = [C('7h')]
+  s.carry = { value: 7 }
+  s.turn = s.activeSeats[0]
+  const sc = [...s.scores]
+  // mi robo apuntaba al 6 (carryValue:6) y seleccionaba [6,7] → llega tarde
+  let msg = null
+  try {
+    engine.reducer(s, { type: 'rob', captured: ['6h', '7h'], carryValue: 6 }, { seat: s.activeSeats[1], seats: {}, rng, now: 0 })
+  } catch (e) { msg = e.message }
+  assert.equal(msg, 'stale-rob', 'robo de carry desfasado (6→7) = stale')
+  assert.deepEqual(s.scores, sc, 'no penaliza (no pasa la mano)')
+}
+
+console.log('OK — captura, robar, carry, fatal, stale-rob (claim y carry) ignorado y 40 partidas (2P/4P).')
