@@ -72,9 +72,8 @@
             <span v-if="game?.dealer === s.id" class="data-badge" :title="t.dealerBadge">D</span>
             <span class="hand-count"><PlayingCard face-down mini />×{{ game?.handCounts?.[s.id] || 0 }}</span>
           </div>
-          <div class="seat-status">
-            <span v-if="playing && game?.turn === s.id" class="turn-dot">●</span>
-            <span v-if="seatOf(s.id).status === 'disconnected'" class="muted">⏸</span>
+          <div class="seat-status" v-if="seatOf(s.id).status === 'disconnected'">
+            <span class="muted">⏸</span>
           </div>
           <div class="seat-actions" v-if="s.id === mySeat && !playing">
             <button class="sm" @click="leaveSeat" :data-testid="'leave-seat-' + s.id">{{ t.leaveSeat }}</button>
@@ -452,7 +451,6 @@ watch(() => game.value?.lastEvents, (evs) => {
 .hand-count :deep(.pcard.mini) { --cw: 24px; }
 .seat-empty { color: var(--color-text-tertiary); font-size: 0.82rem; font-style: italic; }
 .ready-tag { color: var(--color-success); font-size: 0.78rem; font-weight: 600; }
-.turn-dot { color: var(--color-primary); font-size: 0.7rem; }
 .muted { color: var(--color-text-tertiary); font-size: 0.8rem; }
 .seat-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
 button.sm { padding: 0.35em 0.7em; font-size: 0.8rem; }
