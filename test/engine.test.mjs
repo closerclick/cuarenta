@@ -77,6 +77,14 @@ function playFullGame (activeSeats, seed) {
   const engine = makeCuarentaEngine()
   const rng = mulberry32(seed)
   let state = engine.initialState(rng)
+  // corte inicial por la data: cada asiento elige una carta (índices distintos)
+  assert.equal(state.phase, 'draw', 'arranca en fase de corte')
+  let ci = 0
+  for (const seat of state.activeSeats) {
+    state = engine.reducer(state, { type: 'cut', index: ci++ }, { seat, seats: {}, rng, now: 0 })
+  }
+  assert.equal(state.phase, 'play', 'tras el corte se reparte y se juega')
+  assert.ok(state.dealerIdx != null, 'hay data asignada')
   let guard = 0
   while (!engine.isOver(state)) {
     if (++guard > 200000) throw new Error('no termina')
@@ -124,6 +132,9 @@ for (let seed = 1; seed <= 20; seed++) {
   const engine = makeCuarentaEngine()
   const rng = mulberry32(7)
   let s = engine.initialState(rng)
+  // corte inicial
+  let ci = 0
+  for (const sid of s.activeSeats) s = engine.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
   const seat = s.turn
   const card = s.hands[seat][0]
   // selecciona una carta de la mesa que NO forma captura válida (mesa vacía o
@@ -163,6 +174,9 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.ok(threw, 'rob sin claim/carry se rechaza (throw)')
   assert.deepEqual(s.scores, before, 'no cambia el puntaje (no hay fault)')
 
+  // corte inicial para poder jugar
+  let ci = 0
+  for (const sid of s.activeSeats) s = engine.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
   // simular claim y un rob que apunta a OTRA carta (tardío) → stale, no fault
   // botar una carta sin levantar hasta abrir un claim:
   let guard = 0
@@ -207,4 +221,24 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.deepEqual(s.scores, sc, 'no penaliza (no pasa la mano)')
 }
 
-console.log('OK — captura, robar, carry, fatal, stale-rob (claim y carry) ignorado y 40 partidas (2P/4P).')
+// ── corte por la data: gana la carta más alta (desempate por palo ♦>♥>♠>♣) ──
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const engine = makeCuarentaEngine()
+  const rng = mulberry32(9)
+  let s = engine.initialState(rng)
+  assert.equal(s.phase, 'draw')
+  assert.equal(s.drawPile.length, 40)
+  // forzamos picks conocidos: p1 saca un 5, p2 saca un K → gana p2 (data)
+  const i5 = s.drawPile.findIndex(c => c.r === '5')
+  const iK = s.drawPile.findIndex(c => c.r === 'K')
+  s = engine.reducer(s, { type: 'cut', index: i5 }, { seat: 'p1', seats: {}, rng, now: 0 })
+  s = engine.reducer(s, { type: 'cut', index: iK }, { seat: 'p2', seats: {}, rng, now: 0 })
+  assert.equal(s.phase, 'play', 'reparte tras el corte')
+  assert.equal(s.activeSeats[s.dealerIdx], 'p2', 'la K gana la data')
+  assert.ok(s.activeSeats.every(id => s.hands[id].length === 5), 'manos de 5 repartidas')
+  // turno = a la derecha de la data (p2) → p1
+  assert.equal(s.turn, 'p1', 'juega el de la derecha de la data')
+}
+
+console.log('OK — corte por data, captura, robar, carry, fatal, stale-rob y 40 partidas (2P/4P).')

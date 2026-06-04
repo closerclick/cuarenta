@@ -92,6 +92,11 @@ const messages = {
     claimHint: '¡Hay cartas para levantar! Selecciona la combinación y róbalas.',
     claimWaiting: (name) => `${name} dejó cartas por levantar…`,
     carryHint: 'Quedó escalera por robar — selecciona y roba (antes de la próxima jugada).',
+    // corte por la data
+    drawTitle: 'Corte por la data',
+    drawPick: 'Elige una carta: la más alta reparte (empata por palo ♦ ♥ ♠ ♣).',
+    drawWaiting: (n, total) => `Elegiste. Esperando… ${n}/${total} cortaron.`,
+    dataWon: (name) => `${name} gana la data y reparte`,
     // fin
     winTitle: '¡Partida terminada!',
     youWin: '¡Ganaste! 🏆',
@@ -209,6 +214,10 @@ const messages = {
     claimHint: 'There are cards to take! Select the combination and steal them.',
     claimWaiting: (name) => `${name} left cards to be taken…`,
     carryHint: 'A run is left to steal — select and steal it (before the next play).',
+    drawTitle: 'Cut for the deal',
+    drawPick: 'Pick a card: the highest deals (ties break by suit ♦ ♥ ♠ ♣).',
+    drawWaiting: (n, total) => `You picked. Waiting… ${n}/${total} cut.`,
+    dataWon: (name) => `${name} wins the deal`,
     winTitle: 'Game over!',
     youWin: 'You win! 🏆',
     youLose: 'You lost',

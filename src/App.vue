@@ -172,6 +172,7 @@ onMounted(() => {
     takeSeat (id) { return L.takeSeat(id) },
     setReady (b) { return L.setReady(b) },
     start () { return L.startGame() },
+    cut (index) { return L.cut(index) },
     play (cardId, captured = []) { return L.playCard(cardId, captured) },
     rob (captured = [], ctx = {}) { return L.rob(captured, ctx) },
     state () { return L.snapshot.value },

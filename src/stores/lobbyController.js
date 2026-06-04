@@ -280,6 +280,8 @@ function rob (captured = [], ctx = {}) {
   r.action({ type: 'rob', captured, claimCardId: ctx.claimCardId ?? null, carryValue: ctx.carryValue ?? null })
   return true
 }
+// Corte por la data: elegir una carta boca abajo (índice 0..39).
+function cut (index) { room.value?.action({ type: 'cut', index }); return true }
 function resign () { room.value?.action({ type: 'resign' }); return true }
 
 // ── nickname requerido ─────────────────────────────────────────────
@@ -387,7 +389,7 @@ export const lobbyController = {
   // nickname requerido
   hasNick, nickModalOpen, requireNick, submitNick, cancelNick,
   // asientos / juego
-  takeSeat, leaveSeat, setReady, spectate, startGame, playCard, rob, resign,
+  takeSeat, leaveSeat, setReady, spectate, startGame, cut, playCard, rob, resign,
   game, status, result, seats, seatIds, tableSize, spectators, mySeat, isMyTurn,
   occupiedCount, allReady, canStart
 }

@@ -12,8 +12,12 @@
 
 import {
   makeDeck, shuffle, isValidCapture, isRunFrom, captureExists, runTop, carton, findRonda,
-  TARGET, NO_CARTON_FROM, FAULT_POINTS
+  SUITS, TARGET, NO_CARTON_FROM, FAULT_POINTS
 } from './cuarentaRules.js'
+
+// Valor de una carta para el CORTE inicial (elegir la data): gana la más alta por
+// número (seq) y, a igualdad, por palo ♦ > ♥ > ♠ > ♣ (orden de SUITS).
+function cutValue (card) { return card.seq * 10 + (4 - SUITS.indexOf(card.s)) }
 
 // Config que el host deja lista antes de arrancar (host-only, mismo contexto JS).
 let _pendingConfig = null
@@ -130,11 +134,15 @@ function makeInitialState (rng) {
     capturedCount: [0, 0],
     scores: [0, 0],
     chicasWon: [0, 0],
-    dealerIdx: 0,
+    dealerIdx: null, // se decide con el corte inicial
     turn: null,
-    // fase del turno: 'play' (alguien tira) | 'claim' (hay algo que levantar y se
-    // espera que alguien lo tome/robe; el turno NO avanza)
-    phase: 'play',
+    // fase: 'draw' (corte por la data) | 'play' (alguien tira) | 'claim' (hay algo
+    // que levantar; el turno NO avanza)
+    phase: 'draw',
+    // corte inicial: 40 cartas boca abajo; cada jugador escoge una, la más alta
+    // gana la data. picks: { seat: { index, card } }.
+    drawPile: shuffle(makeDeck(), rng),
+    picks: {},
     claimSeat: null, // quién tiró la carta que quedó por levantar
     claimCardId: null, // id de esa carta (el "resultado")
     // continuación de escalera que quedó «colgando» tras un levante: robable por
@@ -145,8 +153,16 @@ function makeInitialState (rng) {
     winnerTeam: null,
     endReason: null
   }
+  return s // NO se reparte: primero el corte por la data (fase 'draw')
+}
+
+// Reparte tras el corte: baraja fresca, manos de 5, turno a la derecha de la data.
+function dealFromCut (s, rng) {
+  s.deck = shuffle(makeDeck(), rng)
+  s.table = []; s.lastPlay = null; s.lastCapturer = null; s.capturedCount = [0, 0]
+  s.phase = 'play'; s.claimSeat = null; s.claimCardId = null; s.carry = null
+  s.picks = {}; s.drawPile = []
   dealRound(s, rng, true)
-  return s
 }
 
 // Aplica una captura al equipo `team`: saca de la mesa las cartas capturadas (y la
@@ -209,6 +225,32 @@ export function makeCuarentaEngine () {
     reducer (state, action, ctx) {
       if (!action) throw new Error('no-action')
       if (state.finished) throw new Error('game-finished')
+
+      // ── CORTE por la data: cada jugador escoge una carta boca abajo; la más
+      // alta (seq, desempate por palo ♦>♥>♠>♣) gana y reparte.
+      if (action.type === 'cut') {
+        if (state.phase !== 'draw') throw new Error('not-draw-phase')
+        const seat = ctx.seat
+        if (state.teamOf[seat] == null) throw new Error('not-a-player')
+        if (state.picks[seat]) throw new Error('already-picked')
+        const i = action.index
+        if (!(Number.isInteger(i) && i >= 0 && i < state.drawPile.length)) throw new Error('bad-index')
+        if (Object.values(state.picks).some(p => p.index === i)) throw new Error('index-taken')
+        const s = clone(state)
+        s.lastEvents = []
+        s.picks[seat] = { index: i, card: s.drawPile[i] }
+        if (s.activeSeats.every(id => s.picks[id])) {
+          let best = null, bestVal = -1
+          for (const id of s.activeSeats) {
+            const v = cutValue(s.picks[id].card)
+            if (v > bestVal) { bestVal = v; best = id }
+          }
+          s.dealerIdx = s.activeSeats.indexOf(best)
+          s.lastEvents.push({ type: 'data', dealer: best, picks: s.activeSeats.map(id => ({ seat: id, card: { ...s.picks[id].card } })) })
+          dealFromCut(s, ctx.rng)
+        }
+        return s
+      }
 
       if (action.type === 'resign') {
         const team = state.teamOf[ctx.seat]
@@ -350,7 +392,17 @@ export function makeCuarentaEngine () {
         claimSeat: state.claimSeat,
         claimCardId: state.claimCardId,
         carry: state.carry,
-        dealer: state.activeSeats[state.dealerIdx],
+        dealer: state.dealerIdx != null ? state.activeSeats[state.dealerIdx] : null,
+        // corte por la data (sin revelar las cartas ajenas hasta terminar)
+        draw: state.phase === 'draw'
+          ? {
+              total: state.drawPile.length,
+              picked: state.activeSeats.filter(id => state.picks[id]).length,
+              players: state.activeSeats.length,
+              takenIndexes: Object.values(state.picks).map(p => p.index),
+              myPick: (seat && state.picks[seat]) ? state.picks[seat] : null
+            }
+          : null,
         deckCount: state.deck.length,
         capturedCount: state.capturedCount,
         scores: state.scores,

@@ -15,8 +15,24 @@
       </div>
     </div>
 
+    <!-- Corte por la data: cada quien elige una carta; la más alta reparte -->
+    <div v-if="drawPhase" class="draw">
+      <h3 class="draw-title">{{ t.drawTitle }}</h3>
+      <p class="draw-sub">{{ myDrawPick ? t.drawWaiting(drawInfo.picked, drawInfo.players) : (mySeat ? t.drawPick : t.spectating) }}</p>
+      <div class="draw-grid" data-testid="draw-grid">
+        <PlayingCard
+          v-for="i in drawTotal" :key="i - 1"
+          :card="myDrawPick && myDrawPick.index === (i - 1) ? myDrawPick.card : null"
+          :face-down="!(myDrawPick && myDrawPick.index === (i - 1))"
+          :clickable="canCut(i - 1)"
+          :class="{ taken: isTaken(i - 1) && !(myDrawPick && myDrawPick.index === (i - 1)) }"
+          mini @play="onCut(i - 1)"
+        />
+      </div>
+    </div>
+
     <!-- Mesa: fieltro central + asientos en su lado (tú siempre abajo) -->
-    <div class="table-area" :class="'players-' + (visibleSeats.length || 2)">
+    <div v-else class="table-area" :class="'players-' + (visibleSeats.length || 2)">
       <!-- Fieltro central -->
       <div class="felt" data-testid="table-felt">
         <div class="deck" v-if="(game?.deckCount || 0) > 0">
@@ -78,7 +94,7 @@
     </div>
 
     <!-- Turno / claim / carry -->
-    <div class="turn-bar" v-if="playing">
+    <div class="turn-bar" v-if="playing && !drawPhase">
       <template v-if="claimOpen">
         <span class="claim-hint" data-testid="claim-hint">⚠ {{ mySeat ? t.claimHint : t.claimWaiting(seatOf(game?.claimSeat)?.name || t.noName) }}</span>
       </template>
@@ -112,6 +128,21 @@
           <div class="cine-taken">
             <PlayingCard v-for="c in captureCine.cards" :key="c.id" :card="c" />
           </div>
+        </div>
+      </div>
+    </transition>
+
+    <!-- Revelación del corte: qué sacó cada quien y quién gana la data -->
+    <transition name="cine">
+      <div v-if="dataReveal" class="cine" data-testid="data-reveal">
+        <div class="cine-box">
+          <div class="data-picks" style="--cw:64px">
+            <div v-for="p in dataReveal.picks" :key="p.seat" class="data-pick" :class="{ won: p.seat === dataReveal.dealer }">
+              <PlayingCard :card="p.card" />
+              <span class="data-name">{{ seatOf(p.seat)?.name || t.noName }}</span>
+            </div>
+          </div>
+          <div class="data-msg">{{ t.dataWon(seatOf(dataReveal.dealer)?.name || t.noName) }}</div>
         </div>
       </div>
     </transition>
@@ -173,13 +204,23 @@ defineEmits(['leave', 'rate'])
 const {
   STATUS, game, status, result, seats, seatIds, tableSize, mySeat, myPubkey,
   isMyTurn, occupiedCount,
-  takeSeat, leaveSeat, playCard, rob, resign
+  takeSeat, leaveSeat, cut, playCard, rob, resign
 } = L
 
 const confirmResign = ref(false)
 const playing = computed(() => status.value === STATUS.PLAYING)
 const finished = computed(() => status.value === STATUS.ENDED || !!game.value?.finished)
 const paused = computed(() => status.value === STATUS.PAUSED)
+// Corte por la data (fase 'draw'): el room ya está PLAYING, pero el motor pide
+// que cada jugador elija una carta antes de repartir.
+const drawPhase = computed(() => playing.value && game.value?.phase === 'draw')
+const drawInfo = computed(() => game.value?.draw || null)
+const drawTotal = computed(() => drawInfo.value?.total || 40)
+const myDrawPick = computed(() => drawInfo.value?.myPick || null)
+function isTaken (i) { return (drawInfo.value?.takenIndexes || []).includes(i) }
+function canCut (i) { return drawPhase.value && !!mySeat.value && !myDrawPick.value && !isTaken(i) }
+function onCut (i) { if (canCut(i)) cut(i) }
+
 const claimOpen = computed(() => playing.value && game.value?.phase === 'claim')
 // robo de continuación (carry): disponible aunque el turno avance, hasta la
 // próxima jugada. Cualquier jugador sentado puede robar.
@@ -284,6 +325,9 @@ const EV_TEXT = {
 }
 const faultMsg = ref('')
 let faultTimer = null
+// Revelación del corte por la data.
+const dataReveal = ref(null)
+let dataTimer = null
 // Cinemática del levante (carta ejecutora + cartas que se lleva).
 const captureCine = ref(null)
 let cineTimer = null
@@ -291,6 +335,12 @@ const CAPTURE_TYPES = ['levante', 'caida', 'limpia', 'caidaLimpia']
 watch(() => game.value?.lastEvents, (evs) => {
   if (!Array.isArray(evs)) return
   for (const e of evs) {
+    if (e.type === 'data') {
+      dataReveal.value = { dealer: e.dealer, picks: e.picks }
+      if (dataTimer) clearTimeout(dataTimer)
+      dataTimer = setTimeout(() => { dataReveal.value = null }, 3400)
+      continue
+    }
     if (e.type === 'fault') {
       faultMsg.value = t.value.evFault
       if (faultTimer) clearTimeout(faultTimer)
@@ -392,6 +442,15 @@ button.link:hover { transform: none; background: none; }
   .seat.pos-left .seat-name, .seat.pos-right .seat-name { font-size: 0.72rem; }
 }
 
+/* corte por la data: rejilla de 40 cartas boca abajo */
+.draw { text-align: center; padding: 10px; }
+.draw-title { font-size: 1.2rem; }
+.draw-sub { color: var(--color-text-secondary); margin: 6px 0 12px; font-size: 0.9rem; }
+.draw-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; max-width: 460px; margin: 0 auto; }
+@media (max-width: 480px) { .draw-grid { grid-template-columns: repeat(8, 1fr); gap: 4px; } }
+.draw-grid :deep(.pcard.taken) { opacity: .35; filter: grayscale(1); }
+.draw-grid :deep(.pcard) { width: 100%; height: auto; aspect-ratio: 0.69; }
+
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
 .turn-bar { text-align: center; min-height: 24px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .my-turn { color: var(--color-primary); font-weight: 700; }
@@ -424,6 +483,13 @@ button.link.clear { color: var(--color-text-secondary); }
 }
 .cine-box :deep(.cine-result) { --cw: 104px; outline: 3px solid var(--color-primary); box-shadow: 0 0 22px rgba(205,163,80,.7); }
 .cine-taken { display: flex; gap: 8px; --cw: 78px; }
+/* revelación del corte */
+.data-picks { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.data-pick { display: flex; flex-direction: column; align-items: center; gap: 6px; opacity: .7; }
+.data-pick.won { opacity: 1; }
+.data-pick.won :deep(.pcard) { outline: 3px solid var(--color-primary); box-shadow: 0 0 18px rgba(205,163,80,.7); }
+.data-name { font-size: 0.8rem; color: var(--color-text); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.data-msg { margin-top: 12px; text-align: center; font-family: var(--font-headline); font-weight: 700; color: var(--color-primary); }
 @keyframes cine-float {
   0%   { transform: scale(.6) translateY(20px); opacity: 0; }
   14%  { transform: scale(1) translateY(0); opacity: 1; }
