@@ -3,9 +3,19 @@
     <section class="create card">
       <h2>{{ t.playTitle }}</h2>
       <p class="sub">{{ t.playSub }}</p>
-      <div class="vis-toggle">
-        <button :class="{ active: vis === 'public' }" @click="vis = 'public'" data-testid="vis-public">{{ t.public }}</button>
-        <button :class="{ active: vis === 'private' }" @click="vis = 'private'" data-testid="vis-private">{{ t.private }}</button>
+      <div class="opt-row">
+        <span class="opt-label">{{ t.tableSize }}</span>
+        <div class="vis-toggle">
+          <button :class="{ active: size === 2 }" @click="size = 2" data-testid="size-2">{{ t.players(2) }}</button>
+          <button :class="{ active: size === 4 }" @click="size = 4" data-testid="size-4">{{ t.players(4) }}</button>
+        </div>
+      </div>
+      <div class="opt-row">
+        <span class="opt-label">{{ t.visibility }}</span>
+        <div class="vis-toggle">
+          <button :class="{ active: vis === 'public' }" @click="vis = 'public'" data-testid="vis-public">{{ t.public }}</button>
+          <button :class="{ active: vis === 'private' }" @click="vis = 'private'" data-testid="vis-private">{{ t.private }}</button>
+        </div>
       </div>
       <button class="primary big" :disabled="busy" @click="create" data-testid="create-table">{{ t.createGame }}</button>
 
@@ -54,6 +64,7 @@ import { lobbyController as L } from '@/stores/lobbyController'
 const emit = defineEmits(['entered'])
 
 const vis = ref('public')
+const size = ref(2)
 const code = ref('')
 const error = ref('')
 const busy = ref(false)
@@ -74,7 +85,7 @@ function withNick (fn) { L.requireNick(fn) }
 function create () {
   withNick(async () => {
     busy.value = true; error.value = ''
-    const ok = await L.createTable(vis.value)
+    const ok = await L.createTable(vis.value, size.value)
     busy.value = false
     if (ok) emit('entered'); else error.value = L.connectionError.value || t.value.errJoin
   })
@@ -99,7 +110,9 @@ function joinId (id) {
 .create { display: flex; flex-direction: column; gap: 12px; }
 .create h2 { font-size: 1.4rem; }
 .sub { color: var(--color-text-secondary); margin: 0; font-size: 0.92rem; }
-.vis-toggle { display: flex; gap: 8px; }
+.opt-row { display: flex; align-items: center; gap: 12px; }
+.opt-label { font-size: 0.85rem; color: var(--color-text-secondary); min-width: 96px; }
+.vis-toggle { display: flex; gap: 8px; flex: 1; }
 .vis-toggle button { flex: 1; }
 .vis-toggle button.active { background: var(--color-primary); color: #1a1408; border-color: transparent; }
 .big { font-size: 1.05rem; padding: 0.8em; }

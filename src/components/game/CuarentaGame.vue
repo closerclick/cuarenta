@@ -19,7 +19,7 @@
     <div class="seats" :class="'n' + Math.max(visibleSeats.length, 2)">
       <div
         v-for="id in visibleSeats" :key="id"
-        class="seat" :class="['team' + (SEATS.indexOf(id) % 2), { me: id === mySeat, turn: playing && game?.turn === id, occ: seatOf(id)?.occupied, disc: seatOf(id)?.status === 'disconnected' }]"
+        class="seat" :class="['team' + (seatIds.indexOf(id) % 2), { me: id === mySeat, turn: playing && game?.turn === id, occ: seatOf(id)?.occupied, disc: seatOf(id)?.status === 'disconnected' }]"
         :data-testid="'seat-' + id" :data-seat-state="seatOf(id)?.occupied ? 'occupied' : 'open'"
       >
         <template v-if="seatOf(id)?.occupied">
@@ -151,7 +151,7 @@ import PlayingCard from './PlayingCard.vue'
 defineEmits(['leave', 'rate'])
 
 const {
-  SEATS, STATUS, game, status, result, seats, mySeat, myPubkey, isHost,
+  STATUS, game, status, result, seats, seatIds, mySeat, myPubkey, isHost,
   isMyTurn, occupiedCount, allReady, canStart,
   takeSeat, leaveSeat, setReady, startGame, playCard, resign
 } = L
@@ -166,15 +166,15 @@ const seatOf = (id) => seats.value?.[id] || null
 // En espera se muestran los 4 asientos (para sentarse); ya en juego, sólo los que
 // están en juego (los activos del motor, o los ocupados como respaldo).
 const visibleSeats = computed(() => {
-  if (!playing.value) return SEATS
-  return game.value?.activeSeats || SEATS.filter(id => seatOf(id)?.occupied)
+  if (!playing.value) return seatIds.value
+  return game.value?.activeSeats || seatIds.value.filter(id => seatOf(id)?.occupied)
 })
 
 // Equipos (autoritativos durante el juego; antes, por paridad de asiento).
 function teamMembers (ti) {
   const teams = game.value?.teams
   if (teams && teams[ti]) return teams[ti]
-  return SEATS.filter(id => SEATS.indexOf(id) % 2 === ti)
+  return seatIds.value.filter(id => seatIds.value.indexOf(id) % 2 === ti)
 }
 function teamLabel (ti) {
   if (ti == null) return ''
@@ -197,7 +197,7 @@ const iWon = computed(() => myTeam.value != null && game.value?.winnerTeam === m
 
 const rivalToRate = computed(() => {
   // Primer rival con pubkey distinto al mío (para calificar tras la partida).
-  for (const id of SEATS) {
+  for (const id of seatIds.value) {
     const s = seatOf(id)
     if (s?.occupied && s.pubkey && s.pubkey !== myPubkey.value) return s
   }

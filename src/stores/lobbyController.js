@@ -125,18 +125,30 @@ async function onResult (ev) {
 }
 
 // ── conexión / lobby ───────────────────────────────────────────────
-async function connect () {
-  if (lobby) { connected.value = true; return true }
+// El nº de asientos es de la SALA, pero el paquete lo fija a nivel de lobby
+// (roomId == token del host, un lobby = una sala a la vez). Por eso el lobby se
+// (re)crea con los asientos del tamaño elegido (2 ó 4) al hostear; el guest los
+// adopta del estado que difunde el host, así que su tamaño local da igual.
+let lobbySeatsKey = null
+
+function seatsForSize (size) {
+  return size === 2 ? ['p1', 'p2'] : ['p1', 'p2', 'p3', 'p4']
+}
+
+async function ensureLobby (seatsArr) {
   await ensureIdentity()
+  const key = seatsArr.join(',')
+  if (lobby && lobbySeatsKey === key) { connected.value = true; return true }
+  if (lobby) { try { await lobby.destroy() } catch (_) {} lobby = null }
   try {
     lobby = await createLobby({
       gameId: GAME_ID,
-      seats: SEATS,
+      seats: seatsArr,
       engine,
       proxy: getWebSocketProxyClient(),
       identity,
       reputation,
-      start: 'manual', // el host arranca cuando hay 2 ó 4 listos
+      start: 'manual', // el host arranca cuando la mesa está completa (2 ó 4) y todos listos
       onSeatVacated: 'pause',
       allowSpectators: true,
       matchmaking: { preferContacts: true }
@@ -145,6 +157,7 @@ async function connect () {
     connectionError.value = e?.message || 'Error de conexión'
     return false
   }
+  lobbySeatsKey = key
   myToken.value = lobby.transport?.token || null
   myPubkey.value = identity?.me?.publickey || myPubkey.value
   connected.value = true
@@ -154,6 +167,9 @@ async function connect () {
   loadMyElo()
   return true
 }
+
+// Para navegar/listar/unir basta con un lobby cualquiera (4 asientos por defecto).
+async function connect () { return ensureLobby(seatsForSize(4)) }
 
 function _bind (r) {
   room.value = r
@@ -169,8 +185,9 @@ function _bind (r) {
   return r
 }
 
-async function createTable (vis = 'public') {
-  if (!lobby) { if (!await connect()) return false }
+async function createTable (vis = 'public', size = 2) {
+  // (Re)crea el lobby con los asientos del tamaño de mesa elegido (2 ó 4).
+  if (!await ensureLobby(seatsForSize(size === 4 ? 4 : 2))) return false
   mode.value = 'host'
   visibility.value = vis
   roomId.value = lobby?.transport?.token || null
@@ -230,7 +247,8 @@ function startGame () {
   const r = room.value
   if (!r || mode.value !== 'host') return false
   const s = snapshot.value
-  const active = SEATS.filter(id => s?.seats?.[id]?.occupied)
+  const ids = Object.keys(s?.seats || {})
+  const active = ids.filter(id => s?.seats?.[id]?.occupied)
   if (active.length !== 2 && active.length !== 4) return false
   setPendingConfig({ activeSeats: active })
   return r.start()
@@ -293,6 +311,9 @@ const game = computed(() => snapshot.value?.game || null)
 const status = computed(() => snapshot.value?.status || (room.value ? STATUS.WAITING : null))
 const result = computed(() => snapshot.value?.result || null)
 const seats = computed(() => snapshot.value?.seats || {})
+// Ids de asiento REALES de la sala (2 ó 4 según el tamaño con que se creó).
+const seatIds = computed(() => Object.keys(seats.value || {}))
+const tableSize = computed(() => seatIds.value.length)
 const spectators = computed(() => snapshot.value?.spectators || [])
 const mySeat = computed(() => {
   const s = snapshot.value
@@ -300,7 +321,7 @@ const mySeat = computed(() => {
   if (s.mySeatId) return s.mySeatId
   if (room.value?.mySeat) return room.value.mySeat
   if (myPubkey.value && s.seats) {
-    for (const id of SEATS) if (s.seats[id]?.pubkey === myPubkey.value) return id
+    for (const id of seatIds.value) if (s.seats[id]?.pubkey === myPubkey.value) return id
   }
   return null
 })
@@ -308,13 +329,16 @@ const isHost = computed(() => mode.value === 'host')
 const isGuest = computed(() => mode.value === 'guest')
 const inRoom = computed(() => !!room.value)
 const isMyTurn = computed(() => !!mySeat.value && game.value?.turn === mySeat.value && status.value === STATUS.PLAYING)
-const occupiedCount = computed(() => SEATS.filter(id => seats.value?.[id]?.occupied).length)
+const occupiedCount = computed(() => seatIds.value.filter(id => seats.value?.[id]?.occupied).length)
 const allReady = computed(() => {
-  const occ = SEATS.map(id => seats.value?.[id]).filter(x => x?.occupied)
+  const occ = seatIds.value.map(id => seats.value?.[id]).filter(x => x?.occupied)
   return occ.length > 0 && occ.every(x => x.ready)
 })
+// La mesa arranca cuando está COMPLETA (todos los asientos de la sala ocupados) y
+// todos listos. El tamaño (2 ó 4) ya está fijado por la sala.
 const canStart = computed(() => isHost.value && status.value === STATUS.WAITING &&
-  (occupiedCount.value === 2 || occupiedCount.value === 4) && allReady.value)
+  (tableSize.value === 2 || tableSize.value === 4) &&
+  occupiedCount.value === tableSize.value && allReady.value)
 
 export const lobbyController = {
   SEATS, STATUS,
@@ -329,6 +353,6 @@ export const lobbyController = {
   hasNick, nickModalOpen, requireNick, submitNick, cancelNick,
   // asientos / juego
   takeSeat, leaveSeat, setReady, spectate, startGame, playCard, resign,
-  game, status, result, seats, spectators, mySeat, isMyTurn,
+  game, status, result, seats, seatIds, tableSize, spectators, mySeat, isMyTurn,
   occupiedCount, allReady, canStart
 }

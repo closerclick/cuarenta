@@ -124,7 +124,7 @@ onMounted(() => {
   // API para tests E2E (Playwright): operar sin depender de coordenadas.
   window.__cuarenta = {
     L,
-    async createTable (vis = 'public') { return L.createTable(vis) },
+    async createTable (vis = 'public', size = 2) { return L.createTable(vis, size) },
     async joinTable (token) { return L.joinTable(token) },
     myToken () { return L.myToken.value },
     takeSeat (id) { return L.takeSeat(id) },
