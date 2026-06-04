@@ -249,8 +249,10 @@ function toggleSelect (c) {
   if (selected.has(c.id)) selected.delete(c.id); else selected.add(c.id)
 }
 function onThrow (card) {
-  if (!isMyTurn.value || claimOpen.value) return
-  playCard(card.id, [...selected])
+  // Estando sentado se puede tirar aunque no sea tu turno: el motor lo penaliza
+  // (pasa la mano con 10). Fuera de turno no se mandan capturas seleccionadas.
+  if (!mySeat.value || claimOpen.value) return
+  playCard(card.id, isMyTurn.value ? [...selected] : [])
   selected.clear()
 }
 function onRob () {
