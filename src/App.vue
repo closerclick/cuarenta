@@ -11,7 +11,7 @@
         </div>
       </div>
       <div class="actions">
-        <closer-click-install class="cc-install" :lang="lang" label="" data-testid="install-btn"></closer-click-install>
+        <closer-click-install class="cc-install" :lang="lang" data-testid="install-btn"></closer-click-install>
         <button class="ghost" @click="rulesOpen = true" :title="t.rules" data-testid="rules-btn">?</button>
         <button class="ghost" @click="toggleLang" :title="lang === 'es' ? 'English' : 'Español'">{{ lang === 'es' ? 'EN' : 'ES' }}</button>
         <button class="ghost" @click="settingsOpen = true" :title="t.identity" data-testid="settings-btn">⚙</button>
@@ -196,14 +196,16 @@ onMounted(() => {
   position: sticky; top: 0; z-index: 50;
 }
 .cc-back { color: var(--color-text); --cc-back-size: 34px; margin-left: -4px; flex-shrink: 0; }
-/* Botón Instalar (Web Component) con el mismo look que los .ghost del header. */
+/* Botón "Instalar App" (Web Component): pastilla de texto con ícono, acorde al header. */
 .cc-install {
-  color: var(--color-text); flex-shrink: 0;
-  --cc-install-pad: 0; --cc-install-radius: 10px; --cc-install-gap: 0;
-  --cc-install-icon: 18px; --cc-install-bg-hover: transparent;
+  flex-shrink: 0;
+  --cc-install-color: var(--color-primary);
+  --cc-install-radius: 10px; --cc-install-gap: 6px;
+  --cc-install-icon: 16px; --cc-install-font-size: .9rem;
+  --cc-install-bg-hover: var(--color-primary-light, rgba(0,0,0,.06));
   --cc-install-accent: var(--color-primary);
 }
-.cc-install::part(button) { width: 38px; height: 38px; border: 1px solid var(--color-border); }
+.cc-install::part(button) { height: 38px; padding: 0 12px; border: 1px solid var(--color-primary); }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .brand-logo { width: 36px; height: 36px; border-radius: 9px; }
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }

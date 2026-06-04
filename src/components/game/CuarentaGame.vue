@@ -431,14 +431,17 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat.team0 { border-top: 3px solid var(--color-primary); }
 .seat.team1 { border-top: 3px solid var(--color-info); }
 .seat.me { background: var(--bg-elev); box-shadow: 0 0 0 1px var(--color-primary) inset, var(--shadow-sm); }
-.seat.turn { box-shadow: 0 0 0 2px var(--color-primary); }
+/* Resaltado de turno con box-shadow INSET: se dibuja DENTRO de la caja, así el
+   glow nunca cambia la forma/posición del asiento ni se derrama sobre el fieltro. */
+.seat.turn { box-shadow: inset 0 0 0 2px var(--color-primary); }
 /* MI turno: glow estático más fuerte en mi asiento (sin palpitar). */
-/* glow ajustado (poco desenfoque) para que NO se derrame sobre el fieltro */
-.seat.me.turn { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 6px 0 rgba(205,163,80,.65); }
+/* MI turno: glow fuerte pero INSET (dentro de la caja); no altera forma/posición. */
+.seat.me.turn { box-shadow: inset 0 0 0 3px var(--color-primary-light), inset 0 0 16px rgba(205,163,80,.6); }
 .seat.disc { opacity: 0.6; }
 .seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; width: 100%; }
 /* el nombre se ajusta y NO se trunca: salta de línea si hace falta */
-.seat-name { font-weight: 600; font-size: 0.85rem; max-width: 100%; line-height: 1.15; overflow-wrap: anywhere; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* nombre completo: se ajusta y salta de línea, sin truncar (puede crecer el asiento) */
+.seat-name { font-weight: 600; font-size: 0.85rem; max-width: 100%; line-height: 1.15; overflow-wrap: anywhere; word-break: break-word; }
 .seat-name.clickable { cursor: pointer; }
 .seat-name.clickable:hover { color: var(--color-primary); text-decoration: underline; text-decoration-style: dotted; }
 .you { color: var(--color-primary); font-weight: 400; }
@@ -457,9 +460,7 @@ button.link { background: none; border: none; color: var(--color-primary); paddi
 button.link:hover { transform: none; background: none; }
 
 @media (max-width: 460px) {
-  /* más aire arriba/abajo para que el asiento (con su glow) no se monte en el fieltro */
-  .players-2 .felt, .players-1 .felt { top: 104px; bottom: 104px; }
-  .players-4 .felt { left: 84px; right: 84px; top: 100px; bottom: 100px; }
+  .players-4 .felt { left: 84px; right: 84px; top: 88px; bottom: 88px; }
   .seat { width: 120px; padding: 6px; gap: 3px; }
   .seat.pos-left, .seat.pos-right { width: 80px; padding: 6px 4px; }
   .seat-name { font-size: 0.74rem; }
