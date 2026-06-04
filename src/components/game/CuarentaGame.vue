@@ -197,9 +197,15 @@
           <template v-else>{{ t.teamWins(teamLabel(game?.winnerTeam)) }}</template>
           <span v-if="game?.endReason === 'resign'"> ({{ t.byResign }})</span>
         </p>
+        <!-- Calificar uno por uno a los demás jugadores (rating normal, independiente). -->
+        <div class="rate-list" v-if="ratablePlayers.length">
+          <span class="muted">{{ t.rateRivals }}:</span>
+          <button v-for="p in ratablePlayers" :key="p.pubkey" class="sm" @click="$emit('rate', p)" :data-testid="'rate-' + p.id">
+            ★ {{ p.name || t.noName }}
+          </button>
+        </div>
         <div class="result-actions">
-          <button v-if="rivalToRate" class="primary" @click="$emit('rate', rivalToRate)">{{ t.rateRivals }}</button>
-          <button @click="$emit('leave')">{{ t.backToLobby }}</button>
+          <button class="primary" @click="$emit('leave')">{{ t.backToLobby }}</button>
         </div>
       </div>
     </div>
@@ -401,14 +407,10 @@ const leadTeam = computed(() => {
 const myTeam = computed(() => (mySeat.value != null ? game.value?.teamOf?.[mySeat.value] : null))
 const iWon = computed(() => myTeam.value != null && game.value?.winnerTeam === myTeam.value)
 
-const rivalToRate = computed(() => {
-  // Primer rival con pubkey distinto al mío (para calificar tras la partida).
-  for (const id of seatIds.value) {
-    const s = seatOf(id)
-    if (s?.occupied && s.pubkey && s.pubkey !== myPubkey.value) return s
-  }
-  return null
-})
+// Todos los demás jugadores (con identidad) con quienes jugué: se califican uno
+// por uno, cada calificación independiente (rating normal).
+const ratablePlayers = computed(() =>
+  seatIds.value.map(seatOf).filter(s => s?.occupied && s.pubkey && s.pubkey !== myPubkey.value))
 
 function doResign () { confirmResign.value = false; resign() }
 
@@ -688,4 +690,6 @@ button.link.clear { color: var(--color-text-secondary); }
 .result-line.win { color: var(--color-success); }
 .result-line.lose { color: var(--color-error); }
 .result-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 1rem; }
+.rate-list { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+.rate-list .muted { width: 100%; font-size: 0.85rem; }
 </style>
