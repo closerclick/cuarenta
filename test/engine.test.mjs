@@ -57,7 +57,7 @@ assert.ok(!captureExists([C('2h'), C('Kd')], C('7s')), 'no hay captura para 7')
 
 // ronda
 assert.ok(findRonda([{ r: '5' }, { r: '5' }, { r: '5' }, { r: '2' }, { r: 'K' }]))
-assert.equal(findRonda([{ r: '5' }, { r: '5' }, { r: '5' }, { r: '5' }, { r: 'K' }]).pts, 8)
+assert.equal(findRonda([{ r: '5' }, { r: '5' }, { r: '5' }, { r: '5' }, { r: 'K' }]).pts, 4)
 
 // ── helpers de simulación ───────────────────────────────────────
 // Busca una captura válida mínima para `card` sobre `table` (sin incluir excludeId).
@@ -277,7 +277,7 @@ for (let seed = 1; seed <= 20; seed++) {
   const extra = { id: 'Kd2', r: 'K', s: 'd', seq: 10, sum: null }
   s.table = [rival, extra]; s.lastPlay = { seat: 'p2', card: rival } // el rival acaba de tirar
   const ns = e.reducer(s, { type: 'play', card: hc.id, captured: [rival.id] }, { seat, seats: {}, rng, now: 0 })
-  assert.equal(ns.scores[team], 4, 'caída en ronda = 4 (sin limpia, queda la K)')
+  assert.equal(ns.scores[team], 2, 'caída en ronda = 2 (sin bonus)')
 }
 
 // ── tirar FUERA DE TURNO = pasa la mano con 10 ─────────────────

@@ -161,22 +161,22 @@ export function carton (cardCount) {
   return p % 2 ? p + 1 : p // redondeo al par hacia arriba (no hay puntajes impares)
 }
 
-/** ¿La mano recién repartida (5 cartas) trae ronda? 3 iguales = ronda (4 pts),
- *  4 iguales = doble ronda (8 pts). Devuelve { type, pts, r } o null. */
+/** ¿La mano recién repartida (5 cartas) trae ronda? 3 iguales = ronda (2 pts),
+ *  4 iguales = doble ronda (4 pts). Devuelve { type, pts, r } o null. */
 export function findRonda (hand) {
   const byRank = {}
   for (const c of hand) byRank[c.r] = (byRank[c.r] || 0) + 1
   let best = null
   for (const r in byRank) {
     const n = byRank[r]
-    if (n >= 4) return { type: 'dobleRonda', pts: 8, r }
-    if (n >= 3 && !best) best = { type: 'ronda', pts: 4, r }
+    if (n >= 4) return { type: 'dobleRonda', pts: 4, r }
+    if (n >= 3 && !best) best = { type: 'ronda', pts: 2, r }
   }
   return best
 }
 
 /** Puntos de las jugadas especiales (para UI / referencia). */
-export const POINTS = { caida: 2, limpia: 2, caidaLimpia: 4, ronda: 4, dobleRonda: 8, fault: 10 }
+export const POINTS = { caida: 2, limpia: 2, caidaLimpia: 2, caidaEnRonda: 2, ronda: 2, dobleRonda: 4, fault: 10 }
 
 /** Castigo por levantar una combinación inválida ("pasa la mano con 10"). */
 export const FAULT_POINTS = 10

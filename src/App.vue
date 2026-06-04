@@ -168,9 +168,8 @@ const rulesHtml = `
   </ul>
   <p><b>Puntos:</b></p>
   <ul>
-    <li><b>Caída +2:</b> igualar la carta que acabó de tirar el rival. <b>Caída y limpia = 2</b> (no se suman).</li>
-    <li><b>Caída en ronda +4:</b> caes con la carta de tu propia ronda.</li>
-    <li><b>Ronda +4</b> (3 iguales en mano) · <b>Doble ronda +8</b> (4 iguales).</li>
+    <li><b>Caída +2:</b> igualar la carta que acabó de tirar el rival. <b>Caída y limpia = 2</b> (no se suman); la <b>caída en ronda</b> (caes con la carta de tu ronda) también es 2.</li>
+    <li><b>Ronda +2</b> (3 iguales en mano) · <b>Doble ronda +4</b> (4 iguales).</li>
     <li><b>Cartón:</b> al jugarse las 40 cartas se cuentan las capturadas, <b>de dos en dos</b>:
       20 = 6, 21-22 = 8, 23-24 = 10… (puntos pares). Menos de 20: nada.</li>
   </ul>

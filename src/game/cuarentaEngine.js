@@ -188,15 +188,13 @@ function applyCapture (s, team, seat, resultCard, capturedCards, prevLast, allow
   s.lastCapturer = seat
   let pts = 0
   const caida = !!(allowCaida && prevLast && prevLast.card.r === resultCard.r && capIds.has(prevLast.card.id))
-  // Caída normal = 2. Si la caída se hace CON la carta de tu propia ronda
-  // ("caída en ronda") suma 2 más (total 4). Tener ronda y caer con otra carta
-  // ("caída con ronda") es caída normal (2).
+  // Toda caída vale 2 (incluida la "caída en ronda" —caer con la carta de tu
+  // ronda—; se distingue sólo para el aviso, sin bonus). Caída y limpia NO se
+  // suman: si hay caída vale 2 (la limpia no añade); la limpia sola vale 2.
   const seatRonda = s.rondaRank ? s.rondaRank[seat] : null
   const caidaEnRonda = caida && seatRonda != null && seatRonda === resultCard.r
   const limpia = s.table.length === 0
-  // Caída y limpia NO se suman: si hay caída vale 2 (la limpia no añade); caída en
-  // ronda vale 4. La limpia sola (sin caída) vale 2.
-  if (caida) { pts = caidaEnRonda ? 4 : 2; addPoints(s, team, pts, true) } else if (limpia) { pts = 2; addPoints(s, team, 2, false) }
+  if (caida) { pts = 2; addPoints(s, team, 2, true) } else if (limpia) { pts = 2; addPoints(s, team, 2, false) }
   s.lastEvents.push({
     type: caidaEnRonda ? 'caidaEnRonda'
       : caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
