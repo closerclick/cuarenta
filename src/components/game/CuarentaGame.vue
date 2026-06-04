@@ -67,8 +67,15 @@
               class="link rate" @click="$emit('rate', seatOf(s.id))" :title="t.reputation" :aria-label="t.reputation"
             >★</button>
           </div>
-          <div class="seat-cards" v-if="playing">
-            <PlayingCard v-for="n in Math.min(game?.handCounts?.[s.id] || 0, 5)" :key="n" face-down mini />
+          <!-- Laterales (estrechos): conteo compacto, sin abanico que desborde.
+               Arriba/abajo (anchos): abanico de dorsos. -->
+          <div class="seat-cards" v-if="playing" :class="{ compact: s.pos === 'left' || s.pos === 'right' }">
+            <template v-if="s.pos === 'left' || s.pos === 'right'">
+              <span class="hand-count"><PlayingCard face-down mini />×{{ game?.handCounts?.[s.id] || 0 }}</span>
+            </template>
+            <template v-else>
+              <PlayingCard v-for="n in Math.min(game?.handCounts?.[s.id] || 0, 5)" :key="n" face-down mini />
+            </template>
           </div>
           <div class="seat-status">
             <span v-if="playing && game?.turn === s.id" class="turn-dot">●</span>
@@ -415,6 +422,7 @@ watch(() => game.value?.lastEvents, (evs) => {
   padding: 7px 9px; background: var(--color-surface);
   display: flex; flex-direction: column; gap: 5px; align-items: center; text-align: center;
   box-shadow: var(--shadow-sm);
+  overflow: hidden; /* nada se sale del card */
 }
 .seat.pos-bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
 .seat.pos-top    { top: 0;    left: 50%; transform: translateX(-50%); }
@@ -427,12 +435,16 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat.me.turn { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 26px rgba(205,163,80,.85); animation: turn-glow 1.1s ease-in-out infinite; }
 .seat.disc { opacity: 0.6; }
 .seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; }
-.seat-name { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seat-name { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .you { color: var(--color-primary); font-weight: 400; }
-.data-badge { flex: 0 0 auto; width: 18px; height: 18px; border-radius: 50%; background: var(--color-primary); color: #1a1408; font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
-.seat-cards { display: flex; }
-.seat-cards :deep(.pcard) { margin-left: -14px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.data-badge { flex: 0 0 auto; width: 16px; height: 16px; border-radius: 50%; background: var(--color-primary); color: #1a1408; font-size: 0.65rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.seat-cards { display: flex; max-width: 100%; }
+.seat-cards :deep(.pcard) { margin-left: -16px; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
 .seat-cards :deep(.pcard:first-child) { margin-left: 0; }
+/* laterales: conteo compacto (un dorso + ×N), nunca desborda */
+.seat-cards.compact { gap: 3px; }
+.hand-count { display: inline-flex; align-items: center; gap: 3px; font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); }
+.hand-count :deep(.pcard.mini) { --cw: 22px; }
 .seat-empty { color: var(--color-text-tertiary); font-size: 0.82rem; font-style: italic; }
 .ready-tag { color: var(--color-success); font-size: 0.78rem; font-weight: 600; }
 .turn-dot { color: var(--color-primary); font-size: 0.7rem; }
@@ -443,10 +455,17 @@ button.link { background: none; border: none; color: var(--color-primary); paddi
 button.link:hover { transform: none; background: none; }
 
 @media (max-width: 460px) {
-  .players-4 .felt { left: 70px; right: 70px; top: 84px; bottom: 84px; }
-  .seat { width: 124px; }
-  .seat.pos-left, .seat.pos-right { width: 66px; padding: 5px; }
-  .seat.pos-left .seat-name, .seat.pos-right .seat-name { font-size: 0.72rem; }
+  .players-4 .felt { left: 78px; right: 78px; top: 84px; bottom: 84px; }
+  .seat { width: 120px; padding: 6px; gap: 3px; }
+  .seat.pos-left, .seat.pos-right { width: 74px; padding: 5px 4px; }
+  .seat-name { font-size: 0.74rem; }
+  .seat.pos-left .seat-name, .seat.pos-right .seat-name { font-size: 0.68rem; }
+  /* abanico (arriba/abajo) más pequeño y apretado para no desbordar */
+  .seat-cards :deep(.pcard.mini) { --cw: 24px; }
+  .seat-cards :deep(.pcard) { margin-left: -15px; }
+  .hand-count { font-size: 0.72rem; }
+  .hand-count :deep(.pcard.mini) { --cw: 20px; }
+  .data-badge { width: 14px; height: 14px; font-size: 0.6rem; }
 }
 
 /* corte por la data: rejilla de 40 cartas boca abajo */

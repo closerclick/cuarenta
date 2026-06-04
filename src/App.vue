@@ -212,6 +212,17 @@ onMounted(() => {
 .actions { display: flex; gap: 6px; margin-left: auto; }
 button.ghost { background: transparent; border: 1px solid var(--color-border); width: 38px; height: 38px; padding: 0; border-radius: 10px; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
 .topbar-coin { flex: 0 0 auto; }
+
+/* Móvil: la marca (logo + nombre) se queda en su fila; los botones de acción
+   bajan a una SEGUNDA fila alineada a la derecha, para que no empujen ni se monten
+   sobre el header. Convención del ecosistema (CONVENCIONES-APPS §5). */
+@media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; row-gap: 8px; }
+  .cc-back { order: 0; }
+  .brand { order: 1; flex: 1 1 auto; }
+  .topbar-coin { order: 2; }
+  .actions { order: 3; flex-basis: 100%; justify-content: flex-end; margin-left: 0; }
+}
 main { flex: 1; padding-bottom: env(safe-area-inset-bottom); }
 
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; z-index: 1000; padding: 1rem; }
