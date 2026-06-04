@@ -13,7 +13,10 @@
       <div class="actions">
         <closer-click-install class="cc-install" :lang="lang" data-testid="install-btn"></closer-click-install>
         <button class="ghost" @click="rulesOpen = true" :title="t.rules" data-testid="rules-btn">?</button>
-        <button class="ghost" @click="toggleLang" :title="lang === 'es' ? 'English' : 'Español'">{{ lang === 'es' ? 'EN' : 'ES' }}</button>
+        <div class="lang-selector" role="group" aria-label="es / en">
+          <button :class="{ on: lang === 'es' }" @click="setLang('es')" data-testid="lang-es">ES</button>
+          <button :class="{ on: lang === 'en' }" @click="setLang('en')" data-testid="lang-en">EN</button>
+        </div>
         <button class="ghost" @click="settingsOpen = true" :title="t.identity" data-testid="settings-btn">⚙</button>
         <button class="ghost" @click="openMyProfile" :title="t.identity" data-testid="my-profile" aria-label="Mi perfil">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:19px;height:19px">
@@ -78,7 +81,7 @@
 
 <script setup>
 import { ref, nextTick, watch, onMounted } from 'vue'
-import { t, lang, toggleLang } from './i18n'
+import { t, lang, setLang } from './i18n'
 import { lobbyController as L } from './stores/lobbyController'
 import LobbyView from './components/lobby/LobbyView.vue'
 import CuarentaGame from './components/game/CuarentaGame.vue'
@@ -213,6 +216,12 @@ onMounted(() => {
 .brand-tag { font-size: 0.72rem; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .actions { display: flex; gap: 6px; margin-left: auto; }
 button.ghost { background: transparent; border: 1px solid var(--color-border); width: 38px; height: 38px; padding: 0; border-radius: 10px; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
+/* Selector de idioma: toggle que SIEMPRE muestra ambas opciones (ES/EN), con la
+   activa resaltada (patrón del ecosistema; ver CONVENCIONES-APPS §9). */
+.lang-selector { display: inline-flex; border: 1px solid var(--color-border); border-radius: 999px; overflow: hidden; flex: 0 0 auto; }
+.lang-selector button { background: transparent; color: var(--color-text-secondary); border: none; width: auto; height: 38px; padding: 0 11px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.lang-selector button:hover { color: var(--color-text); }
+.lang-selector button.on { background: var(--color-primary); color: #1a1408; }
 .topbar-coin { flex: 0 0 auto; }
 
 /* Móvil: la marca (logo + nombre) se queda en su fila; los botones de acción
