@@ -96,6 +96,10 @@ const ratingTarget = ref(null)
 useBackLayer(settingsOpen)
 useBackLayer(rulesOpen)
 useBackLayer(ratingTarget, { onClose: () => { ratingTarget.value = null } })
+// Dentro de una partida, "volver" sale al LOBBY (no a la página de origen).
+// Capa de menor prioridad (se empuja al entrar a la sala, antes que los modales),
+// así los modales se cierran primero y el último volver deja la mesa.
+useBackLayer(L.inRoom, { onClose: () => onLeave() })
 const nickDraft = ref(L.myNickname.value || '')
 const nickInput = ref(null)
 
