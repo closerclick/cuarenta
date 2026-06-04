@@ -117,7 +117,7 @@
 
     <!-- Mi mano (resaltada cuando es mi turno). Se puede tirar fuera de turno,
          pero el motor lo castiga: pasa la mano con 10. -->
-    <div class="hand" :class="{ 'my-turn-glow': isMyTurn, 'not-turn': !isMyTurn }" v-if="game?.myHand?.length" data-testid="my-hand">
+    <div class="hand" v-if="game?.myHand?.length" data-testid="my-hand">
       <PlayingCard
         v-for="c in game.myHand" :key="c.id" :card="c"
         :clickable="!!mySeat && !claimOpen" @play="onThrow"
@@ -432,7 +432,8 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat.team1 { border-top: 3px solid var(--color-info); }
 .seat.me { background: var(--bg-elev); box-shadow: 0 0 0 1px var(--color-primary) inset, var(--shadow-sm); }
 .seat.turn { box-shadow: 0 0 0 2px var(--color-primary), 0 0 16px rgba(205,163,80,.4); }
-.seat.me.turn { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 26px rgba(205,163,80,.85); animation: turn-glow 1.1s ease-in-out infinite; }
+/* MI turno: glow estático más fuerte en mi asiento (sin palpitar). */
+.seat.me.turn { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 20px rgba(205,163,80,.8); }
 .seat.disc { opacity: 0.6; }
 .seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; }
 .seat-name { font-weight: 600; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
@@ -479,25 +480,11 @@ button.link:hover { transform: none; background: none; }
 
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
 .turn-bar { text-align: center; min-height: 24px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
-.my-turn {
-  color: var(--color-primary); font-weight: 800; font-size: 1.2rem; letter-spacing: .01em;
-  text-shadow: 0 0 12px rgba(205,163,80,.7); animation: turn-text 1.1s ease-in-out infinite;
-}
-@keyframes turn-text { 0%,100% { opacity: .8; transform: scale(1); } 50% { opacity: 1; transform: scale(1.06); } }
+.my-turn { color: var(--color-primary); font-weight: 700; }
 .claim-hint { color: var(--color-warning); font-weight: 600; }
 button.link.clear { color: var(--color-text-secondary); }
 
-.hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 12px; min-height: 96px; border-radius: 16px; transition: box-shadow .2s ease; }
-/* Glow FUERTE y pulsante cuando es MI turno: que no haya duda. */
-.hand.my-turn-glow {
-  box-shadow: 0 0 0 2px var(--color-primary), 0 0 30px 8px rgba(205,163,80,.55);
-  animation: turn-glow 1.1s ease-in-out infinite;
-}
-@keyframes turn-glow {
-  0%,100% { box-shadow: 0 0 0 2px var(--color-primary), 0 0 22px 4px rgba(205,163,80,.45); }
-  50%     { box-shadow: 0 0 0 3px var(--color-primary-light), 0 0 46px 14px rgba(205,163,80,.85); }
-}
-.hand.not-turn { opacity: .92; }
+.hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 8px; min-height: 96px; }
 .spectator-note { color: var(--color-text-secondary); align-items: center; }
 .play-hint { text-align: center; font-size: 0.8rem; margin: -4px 0 0; }
 
