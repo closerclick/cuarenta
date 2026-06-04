@@ -501,12 +501,13 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat.team0 { border-top: 3px solid var(--color-primary); }
 .seat.team1 { border-top: 3px solid var(--color-info); }
 .seat.me { background: var(--bg-elev); box-shadow: 0 0 0 1px var(--color-primary) inset, var(--shadow-sm); }
-/* Resaltado de turno con box-shadow INSET: se dibuja DENTRO de la caja, así el
-   glow nunca cambia la forma/posición del asiento ni se derrama sobre el fieltro. */
-.seat.turn { box-shadow: inset 0 0 0 2px var(--color-primary); }
+/* Turno (cualquier jugador): anillo inset + GLOW EXTERNO para ver claramente a
+   quién le toca. El box-shadow no afecta layout, así que el tamaño/posición del
+   asiento no cambian. */
+.seat.turn { box-shadow: inset 0 0 0 2px var(--color-primary), 0 0 18px 4px rgba(205,163,80,.7); }
 /* MI turno: glow estático más fuerte en mi asiento (sin palpitar). */
-/* MI turno: glow fuerte pero INSET (dentro de la caja); no altera forma/posición. */
-.seat.me.turn { box-shadow: inset 0 0 0 3px var(--color-primary-light), inset 0 0 16px rgba(205,163,80,.6); }
+/* MI turno: anillo inset + glow externo aún más fuerte. */
+.seat.me.turn { box-shadow: inset 0 0 0 3px var(--color-primary-light), inset 0 0 14px rgba(205,163,80,.55), 0 0 28px 8px rgba(205,163,80,.9); }
 .seat.disc { opacity: 0.6; }
 .seat-head { display: flex; align-items: center; justify-content: center; gap: 4px; max-width: 100%; width: 100%; }
 /* el nombre se ajusta y NO se trunca: salta de línea si hace falta */
