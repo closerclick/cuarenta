@@ -1,7 +1,7 @@
 // Service worker del Cuarenta — patrón estándar del ecosistema CloserClick:
 // navegación network-first (los deploys se ven enseguida; offline cae a caché),
 // resto cache-first con refresco en segundo plano. Subir CACHE en cada cambio.
-const CACHE = 'cuarenta-v1'
+const CACHE = 'cuarenta-v2'
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png']
 
 self.addEventListener('install', (e) => {
