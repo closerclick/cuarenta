@@ -34,13 +34,13 @@
     <!-- Mesa: fieltro central + asientos en su lado (tú siempre abajo) -->
     <div v-else class="table-area" :class="'players-' + (visibleSeats.length || 2)">
       <!-- Fieltro central -->
-      <div class="felt" data-testid="table-felt">
+      <div class="felt" data-testid="table-felt" ref="feltRef">
         <div class="deck" v-if="(game?.deckCount || 0) > 0">
           <PlayingCard face-down mini />
           <span class="deck-count">{{ game?.deckCount ?? 0 }}</span>
         </div>
         <span class="felt-label">{{ t.onTable }}</span>
-        <transition-group name="lay" tag="div" class="table-cards">
+        <transition-group name="lay" tag="div" class="table-cards" :style="{ '--cw': tableCardCw + 'px' }">
           <PlayingCard
             v-for="c in (game?.table || [])" :key="c.id" :card="c"
             :clickable="canSelectTable(c)"
@@ -197,7 +197,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue'
 import { t } from '@/i18n'
 import { lobbyController as L } from '@/stores/lobbyController'
 import PlayingCard from './PlayingCard.vue'
@@ -257,6 +257,35 @@ function onRob () {
 }
 // limpiar selección cuando cambia el turno/fase (otro jugó o se resolvió)
 watch(() => [game.value?.turn, game.value?.phase, game.value?.table?.length], () => selected.clear())
+
+// ── tamaño adaptativo de las cartas en la mesa (que siempre entren al fieltro) ──
+const feltRef = ref(null)
+const feltW = ref(300)
+const feltH = ref(150)
+let ro = null
+function measureFelt () { const el = feltRef.value; if (el) { feltW.value = el.clientWidth; feltH.value = el.clientHeight } }
+watch(feltRef, (el) => {
+  if (ro) { ro.disconnect(); ro = null }
+  if (el && typeof ResizeObserver !== 'undefined') { ro = new ResizeObserver(measureFelt); ro.observe(el); measureFelt() } else { measureFelt() }
+})
+onBeforeUnmount(() => { if (ro) ro.disconnect() })
+
+// Busca el ancho de carta más grande (≤60) con el que las N cartas entran en una
+// grilla dentro del fieltro (ancho útil ~92%, alto menos la etiqueta/mazo).
+const tableCardCw = computed(() => {
+  const n = (game.value?.table || []).length
+  if (n <= 1) return 60
+  const W = Math.max(120, feltW.value * 0.92)
+  const H = Math.max(90, feltH.value - 26)
+  for (let w = 60; w >= 22; w -= 2) {
+    const cw = w + 6
+    const ch = w * 1.45 + 6
+    const perRow = Math.max(1, Math.floor(W / cw))
+    const rows = Math.ceil(n / perRow)
+    if (rows * ch <= H) return w
+  }
+  return 22
+})
 
 const seatOf = (id) => seats.value?.[id] || null
 // ¿El asiento es de OTRO jugador (con identidad)? Click en su nombre → su perfil.
@@ -510,8 +539,8 @@ button.link.clear { color: var(--color-text-secondary); }
      final lo hace la transición de salida de Vue al quitar el overlay. */
   animation: cine-float 1.9s ease-in-out forwards;
 }
-.cine-box :deep(.cine-result) { --cw: 104px; outline: 3px solid var(--color-primary); box-shadow: 0 0 22px rgba(205,163,80,.7); }
-.cine-taken { display: flex; gap: 8px; --cw: 78px; }
+.cine-box :deep(.cine-result) { --cw: 82px; outline: 3px solid var(--color-primary); box-shadow: 0 0 22px rgba(205,163,80,.7); }
+.cine-taken { display: flex; gap: 8px; --cw: 62px; flex-wrap: wrap; justify-content: center; max-width: 92vw; }
 /* revelación del corte */
 .data-picks { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .data-pick { display: flex; flex-direction: column; align-items: center; gap: 6px; opacity: .7; }
