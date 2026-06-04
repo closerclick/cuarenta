@@ -53,6 +53,7 @@ function dealRound (s, rng, setTurn) {
     // sobras se descartan). Asignar, no concatenar.
     const give = s.deck.splice(0, 5)
     s.hands[id] = give
+    if (s.committed) s.committed[id] = [] // mano nueva → se borran las cartas expuestas
     const ron = findRonda(s.hands[id])
     s.rondaRank[id] = ron ? ron.r : null
     if (ron) {
@@ -177,6 +178,8 @@ function makeInitialState (rng) {
     picks: {},
     rondaRank: {}, // seat → rango de su ronda activa esta mano (o null)
     caidaStreak: [0, 0], // caídas seguidas por equipo (4 seguidas = gana la mesa)
+    committed: {}, // seat → [cardId…] tiradas FUERA de turno: quedan expuestas y se
+    //                juegan obligatoriamente en su turno, en ese orden (FIFO).
     claimSeat: null, // quién tiró la carta que quedó por levantar
     claimCardId: null, // id de esa carta (el "resultado")
     // continuación de escalera que quedó «colgando» tras un levante: robable por
@@ -376,19 +379,24 @@ export function makeCuarentaEngine () {
       if (!hand) throw new Error('not-a-player')
       const idx = hand.findIndex(c => c.id === action.card)
       if (idx < 0) throw new Error('card-not-in-hand')
-      // Tirar FUERA DE TURNO (con una carta que sí tienes) = error fatal: pasa la
-      // mano con 10 al otro equipo. (Acción inválida/sin carta → se rechaza, no penaliza.)
+      // Tirar FUERA DE TURNO no penaliza: la carta queda EXPUESTA (visible para
+      // todos) y deberás jugarla obligatoriamente en tu turno, en el orden tirado.
       if (ctx.seat !== state.turn) {
         const sf = clone(state)
         sf.lastEvents = []
-        applyFault(sf, state.teamOf[ctx.seat], ctx.rng)
+        if (!sf.committed[ctx.seat]) sf.committed[ctx.seat] = []
+        if (!sf.committed[ctx.seat].includes(action.card)) sf.committed[ctx.seat].push(action.card)
         return sf
       }
+      // En mi turno, si tengo cartas expuestas, debo jugar la PRIMERA (en orden).
+      const committedQ = state.committed[ctx.seat] || []
+      if (committedQ.length && action.card !== committedQ[0]) throw new Error('must-play-committed')
 
       const s = clone(state)
       s.lastEvents = []
       s.carry = null // el siguiente jugador juega → se cierra la ventana de robo
       const played = s.hands[ctx.seat].splice(idx, 1)[0]
+      if (s.committed[ctx.seat]?.length) s.committed[ctx.seat].shift() // jugué la expuesta
       const prevLast = state.lastPlay
       const team = s.teamOf[ctx.seat]
       const selIds = Array.isArray(action.captured) ? action.captured : []
@@ -446,6 +454,9 @@ export function makeCuarentaEngine () {
         claimSeat: state.claimSeat,
         claimCardId: state.claimCardId,
         carry: state.carry,
+        // cartas expuestas (tiradas fuera de turno) por asiento, EN ORDEN. Públicas.
+        committed: Object.fromEntries(state.activeSeats.map(id =>
+          [id, (state.committed?.[id] || []).map(cid => (state.hands[id] || []).find(c => c.id === cid)).filter(Boolean)])),
         dealer: state.dealerIdx != null ? state.activeSeats[state.dealerIdx] : null,
         // corte por la data (sin revelar las cartas ajenas hasta terminar)
         draw: state.phase === 'draw'

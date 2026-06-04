@@ -1,16 +1,20 @@
 <template>
   <div class="game">
-    <!-- Marcador -->
+    <!-- Marcador único y compacto: equipo A · botones · equipo B -->
     <div class="scoreboard">
-      <div
-        v-for="ti in [0, 1]" :key="ti"
-        class="team" :class="['t' + ti, { lead: leadTeam === ti }]"
-      >
-        <div class="team-name">{{ teamLabel(ti) }}</div>
-        <div class="team-pts" :data-testid="'score-team-' + ti">{{ teamScore(ti) }}<small>/40</small></div>
-        <div class="team-sub">
-          <span class="chip">{{ t.chicas }}: {{ teamChicas(ti) }}</span>
-        </div>
+      <div class="team t0" :class="{ lead: leadTeam === 0 }">
+        <div class="team-name">{{ teamLabel(0) }}</div>
+        <div class="team-pts" data-testid="score-team-0">{{ teamScore(0) }}<small>/40</small></div>
+        <div class="team-chicas">{{ t.chicas }}: {{ teamChicas(0) }}</div>
+      </div>
+      <div class="score-mid">
+        <button v-if="playing && mySeat" class="danger xs" @click="confirmResign = true" data-testid="resign">{{ t.resign }}</button>
+        <button class="xs" @click="$emit('leave')" data-testid="leave-table">{{ t.leave }}</button>
+      </div>
+      <div class="team t1" :class="{ lead: leadTeam === 1 }">
+        <div class="team-name">{{ teamLabel(1) }}</div>
+        <div class="team-pts" data-testid="score-team-1">{{ teamScore(1) }}<small>/40</small></div>
+        <div class="team-chicas">{{ t.chicas }}: {{ teamChicas(1) }}</div>
       </div>
     </div>
 
@@ -71,6 +75,10 @@
             <span v-if="game?.dealer === s.id" class="data-badge" :title="t.dealerBadge">D</span>
             <span class="hand-count"><PlayingCard face-down mini />×{{ game?.handCounts?.[s.id] || 0 }}</span>
           </div>
+          <!-- cartas expuestas (tiradas fuera de turno): visibles para todos, en orden -->
+          <div class="seat-exposed" v-if="playing && committedOf(s.id).length" :title="t.exposedHint">
+            <PlayingCard v-for="c in committedOf(s.id)" :key="c.id" :card="c" mini />
+          </div>
           <div class="seat-status" v-if="seatOf(s.id).status === 'disconnected'">
             <span class="muted">⏸</span>
           </div>
@@ -113,13 +121,16 @@
     <div class="hand" v-if="game?.myHand?.length" data-testid="my-hand">
       <PlayingCard
         v-for="c in game.myHand" :key="c.id" :card="c"
-        :clickable="!!mySeat && !claimOpen" @play="onThrow"
+        :clickable="handClickable(c)"
+        :class="{ committed: myCommitted.some(x => x.id === c.id), forced: c.id === forcedCardId }"
+        @play="onThrow"
       />
     </div>
     <div class="hand spectator-note" v-else-if="playing && !mySeat">
       {{ t.spectating }}
     </div>
-    <p class="play-hint muted" v-if="isMyTurn && !claimOpen">{{ t.selectHint }}</p>
+    <!-- alto reservado: el texto aparece/desaparece sin mover el layout -->
+    <p class="play-hint muted" v-if="playing && !drawPhase">{{ isMyTurn && !claimOpen ? t.selectHint : '' }}</p>
 
     <!-- Cinemática del levante: la carta que ejecuta arriba y debajo las que se
          lleva, sobrevolando la mesa (~2 s) -->
@@ -176,11 +187,6 @@
       <div v-for="toast in toasts" :key="toast.id" class="toast" :class="toast.kind">{{ toast.text }}</div>
     </div>
 
-    <!-- Controles -->
-    <div class="controls">
-      <button v-if="playing && mySeat" class="danger sm" @click="confirmResign = true" data-testid="resign">{{ t.resign }}</button>
-      <button class="sm" @click="$emit('leave')" data-testid="leave-table">{{ t.leave }}</button>
-    </div>
 
     <!-- Fin de partida -->
     <div v-if="finished" class="modal-overlay">
@@ -288,10 +294,22 @@ function toggleSelect (c) {
   if (!canSelectTable(c)) return
   if (selected.has(c.id)) selected.delete(c.id); else selected.add(c.id)
 }
+// Cartas expuestas (tiradas fuera de turno): visibles para todos y de juego
+// obligatorio en orden. committedOf(id) = cola del asiento.
+function committedOf (id) { return game.value?.committed?.[id] || [] }
+const myCommitted = computed(() => committedOf(mySeat.value))
+// En mi turno, si tengo expuestas, sólo puedo jugar la PRIMERA.
+const forcedCardId = computed(() => (isMyTurn.value && myCommitted.value.length) ? myCommitted.value[0].id : null)
+function handClickable (c) {
+  if (!mySeat.value || claimOpen.value) return false
+  if (forcedCardId.value) return c.id === forcedCardId.value
+  return true // en mi turno (sin expuestas) o fuera de turno (para exponer)
+}
 function onThrow (card) {
-  // Estando sentado se puede tirar aunque no sea tu turno: el motor lo penaliza
-  // (pasa la mano con 10). Fuera de turno no se mandan capturas seleccionadas.
+  // Estando sentado se puede tirar aunque no sea tu turno: fuera de turno la carta
+  // queda EXPUESTA (no se mandan capturas) y se jugará obligatoriamente en tu turno.
   if (!mySeat.value || claimOpen.value) return
+  if (forcedCardId.value && card.id !== forcedCardId.value) return // debo jugar la expuesta
   playCard(card.id, isMyTurn.value ? [...selected] : [])
   selected.clear()
 }
@@ -473,15 +491,22 @@ watch(() => game.value?.lastEvents, (evs) => {
 <style scoped>
 .game { display: flex; flex-direction: column; gap: 14px; padding: 12px; max-width: 920px; margin: 0 auto; }
 
-.scoreboard { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.team { border: 1px solid var(--color-border); border-radius: var(--border-radius-md); padding: 10px 14px; background: var(--color-surface); }
-.team.t0 { border-left: 4px solid var(--color-primary); }
-.team.t1 { border-left: 4px solid var(--color-info); }
-.team.lead { box-shadow: 0 0 0 2px var(--color-primary) inset; }
-.team-name { font-weight: 600; font-size: 0.92rem; color: var(--color-text-secondary); }
-.team-pts { font-family: var(--font-headline); font-size: 2rem; line-height: 1.1; }
-.team-pts small { font-size: 0.9rem; color: var(--color-text-tertiary); }
-.team-sub { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+/* Marcador único compacto: A · botones · B en una sola tarjeta */
+.scoreboard {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px;
+  border: 1px solid var(--color-border); border-radius: var(--border-radius-md);
+  background: var(--color-surface); padding: 8px 12px;
+}
+.team { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; border-radius: 8px; padding: 2px 4px; }
+.team.t0 { border-top: 3px solid var(--color-primary); }
+.team.t1 { border-top: 3px solid var(--color-info); }
+.team.lead { background: var(--bg-elev); }
+.team-name { font-weight: 600; font-size: 0.78rem; color: var(--color-text-secondary); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team-pts { font-family: var(--font-headline); font-size: 1.5rem; line-height: 1; }
+.team-pts small { font-size: 0.7rem; color: var(--color-text-tertiary); }
+.team-chicas { font-size: 0.7rem; color: var(--color-text-tertiary); }
+.score-mid { display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
+button.xs { padding: 0.3em 0.7em; font-size: 0.72rem; white-space: nowrap; }
 
 /* ── Mesa: fieltro central + asientos en cada lado ── */
 .table-area {
@@ -550,6 +575,12 @@ watch(() => game.value?.lastEvents, (evs) => {
 .seat-cards { display: flex; align-items: center; justify-content: center; gap: 5px; max-width: 100%; }
 .hand-count { display: inline-flex; align-items: center; gap: 3px; font-size: 0.8rem; font-weight: 600; color: var(--color-text-secondary); }
 .hand-count :deep(.pcard.mini) { --cw: 24px; }
+/* cartas expuestas en el asiento (tiradas fuera de turno) */
+.seat-exposed { display: flex; gap: 3px; margin-top: 2px; }
+.seat-exposed :deep(.pcard.mini) { --cw: 26px; outline: 2px solid var(--color-warning); }
+/* en mi mano: marca de expuesta y la que debo jugar ya */
+.hand :deep(.pcard.committed) { outline: 2px solid var(--color-warning); }
+.hand :deep(.pcard.forced) { outline: 3px solid var(--color-primary); box-shadow: 0 0 14px rgba(205,163,80,.7); }
 .seat-empty { color: var(--color-text-tertiary); font-size: 0.82rem; font-style: italic; }
 .ready-tag { color: var(--color-success); font-size: 0.78rem; font-weight: 600; }
 .muted { color: var(--color-text-tertiary); font-size: 0.8rem; }
@@ -579,7 +610,8 @@ button.link:hover { transform: none; background: none; }
 .draw-grid :deep(.pcard) { width: 100%; height: auto; aspect-ratio: 0.69; }
 
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
-.turn-bar { text-align: center; min-height: 24px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
+/* alto reservado para que los mensajes no muevan el layout (sin saltos de scroll) */
+.turn-bar { text-align: center; min-height: 46px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .my-turn { color: var(--color-primary); font-weight: 700; }
 .clock { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--color-text-secondary); }
 .clock.low { color: var(--color-error); }
@@ -588,7 +620,7 @@ button.link.clear { color: var(--color-text-secondary); }
 
 .hand { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; padding: 8px; min-height: 96px; }
 .spectator-note { color: var(--color-text-secondary); align-items: center; }
-.play-hint { text-align: center; font-size: 0.8rem; margin: -4px 0 0; }
+.play-hint { text-align: center; font-size: 0.8rem; margin: 0; min-height: 2.4em; }
 
 .fault-toast {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);

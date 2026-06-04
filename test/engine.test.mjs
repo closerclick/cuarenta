@@ -296,18 +296,31 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.ok(ns.chicasWon[team] > before, '4ª caída seguida gana la chica')
 }
 
-// ── tirar FUERA DE TURNO = pasa la mano con 10 ─────────────────
+// ── tirar FUERA DE TURNO = exponer (no penaliza) y jugar obligado en orden ──
 {
   setPendingConfig({ activeSeats: ['p1', 'p2'] })
   const e = makeCuarentaEngine(); const rng = mulberry32(17)
   let s = e.initialState(rng); let ci = 0
   for (const sid of s.activeSeats) s = e.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
   const other = s.activeSeats.find(x => x !== s.turn) // el que NO tiene el turno
-  const offTeam = s.teamOf[other]
-  const card = s.hands[other][0]
-  const ns = e.reducer(s, { type: 'play', card: card.id, captured: [] }, { seat: other, seats: {}, rng, now: 0 })
-  assert.ok(ns.lastEvents.some(ev => ev.type === 'fault'), 'fuera de turno = fault')
-  assert.equal(ns.scores[offTeam === 0 ? 1 : 0], 10, '+10 al otro equipo')
+  const before = [...s.scores]
+  const c1 = s.hands[other][0]; const c2 = s.hands[other][1]
+  s = e.reducer(s, { type: 'play', card: c1.id, captured: [] }, { seat: other, seats: {}, rng, now: 0 })
+  s = e.reducer(s, { type: 'play', card: c2.id, captured: [] }, { seat: other, seats: {}, rng, now: 0 })
+  assert.deepEqual(s.committed[other], [c1.id, c2.id], 'dos expuestas en orden')
+  assert.deepEqual(s.scores, before, 'exponer no penaliza')
+  // ahora le toca a `other`: debe jugar la PRIMERA expuesta; otra carta se rechaza
+  // primero el turno actual juega algo para pasar el turno a `other`
+  const cur = s.turn
+  const lay = s.hands[cur].find(x => x.id !== c1.id) || s.hands[cur][0]
+  s = e.reducer(s, { type: 'play', card: lay.id, captured: [] }, { seat: cur, seats: {}, rng, now: 0 })
+  if (s.turn === other && s.phase === 'play') {
+    let threw = false
+    try { e.reducer(s, { type: 'play', card: c2.id, captured: [] }, { seat: other, seats: {}, rng, now: 0 }) } catch (_) { threw = true }
+    assert.ok(threw, 'no puedo jugar la 2ª expuesta antes que la 1ª')
+    const ns = e.reducer(s, { type: 'play', card: c1.id, captured: [] }, { seat: other, seats: {}, rng, now: 0 })
+    assert.deepEqual(ns.committed[other], [c2.id], 'jugada la 1ª, queda la 2ª expuesta')
+  }
 }
 
 // ── caída y limpia = 2 (no se suman) ───────────────────────────

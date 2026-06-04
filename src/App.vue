@@ -174,9 +174,10 @@ const rulesHtml = `
     <li><b>Cartón:</b> al jugarse las 40 cartas se cuentan las capturadas, <b>de dos en dos</b>:
       20 = 6, 21-22 = 8, 23-24 = 10… (puntos pares). Menos de 20: nada.</li>
   </ul>
-  <p><b>Reglas de mesa:</b> tienes <b>60 s por turno</b> o se cuenta como abandono. Tirar fuera de
-  turno o levantar una combinación inválida es falta: <b>«pasa la mano con 10»</b> (10 al rival y se
-  rebaraja). El abandono se pierde.</p>
+  <p><b>Reglas de mesa:</b> tienes <b>60 s por turno</b> o se cuenta como abandono (se pierde).
+  Tirar <b>fuera de turno</b> no penaliza: la carta queda <b>expuesta</b> (visible para todos) y
+  deberás jugarla obligatoriamente en tu turno, en el orden en que la mostraste. Levantar una
+  <b>combinación inválida</b> es falta: <b>«pasa la mano con 10»</b> (10 al rival y se rebaraja).</p>
   <p>Gana la <b>chica</b> quien llega a <b>40 puntos</b>; gana la partida quien gana <b>2 chicas</b>.
   Desde 30 puntos «no sirve cartón».</p>
 `
