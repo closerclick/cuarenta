@@ -54,11 +54,17 @@ function dealRound (s, rng, setTurn) {
     const give = s.deck.splice(0, 5)
     s.hands[id] = give
     const ron = findRonda(s.hands[id])
-    // ronda activa de la mano (para caída con/en ronda); se reevalúa cada reparto
     s.rondaRank[id] = ron ? ron.r : null
     if (ron) {
-      addPoints(s, s.teamOf[id], ron.pts, false)
-      s.lastEvents.push({ type: ron.type, seat: id, pts: ron.pts, r: ron.r })
+      if (ron.type === 'dobleRonda') {
+        // 4 cartas iguales = GANA LA MESA (la chica).
+        s._winChica = s.teamOf[id]
+        s.lastEvents.push({ type: 'dobleRonda', seat: id, r: ron.r })
+      } else {
+        // Ronda (3 iguales): se anuncia y da 2.
+        addPoints(s, s.teamOf[id], 2, false)
+        s.lastEvents.push({ type: 'ronda', seat: id, pts: 2, r: ron.r })
+      }
     }
   }
   s.lastPlay = null
@@ -92,7 +98,21 @@ function endChica (s, team, rng) {
     return
   }
   s.scores = [0, 0]
+  s.caidaStreak = [0, 0]
   reshuffleAndDeal(s, rng)
+}
+
+// Resuelve victorias INSTANTÁNEAS de chica (s._winChica): 4 iguales (doble ronda)
+// o 4 caídas seguidas. Un reparto de nueva chica puede gatillar otra → bucle.
+function settle (s, rng) {
+  let guard = 0
+  while (!s.finished && s._winChica != null && guard++ < 30) {
+    const t = s._winChica
+    s._winChica = null
+    endChica(s, t, rng)
+  }
+  s._winChica = null
+  return s
 }
 
 // Tras agotarse las manos: o se reparte otra vuelta, o (baraja vacía) se cuenta el
@@ -156,6 +176,7 @@ function makeInitialState (rng) {
     drawPile: shuffle(makeDeck(), rng),
     picks: {},
     rondaRank: {}, // seat → rango de su ronda activa esta mano (o null)
+    caidaStreak: [0, 0], // caídas seguidas por equipo (4 seguidas = gana la mesa)
     claimSeat: null, // quién tiró la carta que quedó por levantar
     claimCardId: null, // id de esa carta (el "resultado")
     // continuación de escalera que quedó «colgando» tras un levante: robable por
@@ -188,16 +209,23 @@ function applyCapture (s, team, seat, resultCard, capturedCards, prevLast, allow
   s.lastCapturer = seat
   let pts = 0
   const caida = !!(allowCaida && prevLast && prevLast.card.r === resultCard.r && capIds.has(prevLast.card.id))
-  // Toda caída vale 2 (incluida la "caída en ronda" —caer con la carta de tu
-  // ronda—; se distingue sólo para el aviso, sin bonus). Caída y limpia NO se
-  // suman: si hay caída vale 2 (la limpia no añade); la limpia sola vale 2.
-  const seatRonda = s.rondaRank ? s.rondaRank[seat] : null
-  const caidaEnRonda = caida && seatRonda != null && seatRonda === resultCard.r
+  // Toda caída vale 2 (NO se distingue si fue con carta de ronda: delataría la
+  // ronda). Caída y limpia NO se suman: si hay caída vale 2 (la limpia no añade);
+  // la limpia sola vale 2.
   const limpia = s.table.length === 0
   if (caida) { pts = 2; addPoints(s, team, 2, true) } else if (limpia) { pts = 2; addPoints(s, team, 2, false) }
+  // Racha de caídas: 4 seguidas del mismo equipo = gana la mesa. Una captura que
+  // NO es caída corta la racha de ese equipo.
+  if (!s.caidaStreak) s.caidaStreak = [0, 0]
+  if (caida) {
+    s.caidaStreak[team] += 1
+    s.caidaStreak[team === 0 ? 1 : 0] = 0
+    if (s.caidaStreak[team] >= 4) s._winChica = team
+  } else {
+    s.caidaStreak[team] = 0
+  }
   s.lastEvents.push({
-    type: caidaEnRonda ? 'caidaEnRonda'
-      : caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
+    type: caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
     seat, pts, n: capturedCards.length + 1,
     // cartas involucradas (para la cinemática del levante): la que ejecuta + las
     // que se lleva. Son cartas públicas (estaban en la mesa), seguras de difundir.
@@ -266,7 +294,7 @@ export function makeCuarentaEngine () {
           s.lastEvents.push({ type: 'data', dealer: best, picks: s.activeSeats.map(id => ({ seat: id, card: { ...s.picks[id].card } })) })
           dealFromCut(s, ctx.rng)
         }
-        return s
+        return settle(s, ctx.rng) // el reparto inicial pudo dar doble ronda (gana la mesa)
       }
 
       if (action.type === 'resign') {
@@ -304,11 +332,11 @@ export function makeCuarentaEngine () {
           if (!okSel) { applyFault(s, team, ctx.rng); return s }
           applyCapture(s, team, ctx.seat, resultCard, selected, null, false, true)
           const wNow = s.scores.findIndex(x => x >= TARGET)
-          if (wNow >= 0) { endChica(s, wNow, ctx.rng); return s }
+          if (wNow >= 0) { endChica(s, wNow, ctx.rng); return settle(s, ctx.rng) }
           s.turn = nextSeat(s, state.claimSeat) // el turno sigue desde quien tiró
           refill(s, ctx.rng)
           setCarry(s, resultCard.seq, selected)
-          return s
+          return settle(s, ctx.rng)
         }
 
         // (b) robo de continuación: la escalera consecutiva que quedó colgando.
@@ -327,16 +355,17 @@ export function makeCuarentaEngine () {
           s.table = s.table.filter(c => !capIds.has(c.id))
           s.capturedCount[team] += selected.length // sin carta resultado
           s.lastCapturer = ctx.seat
+          s.caidaStreak[team] = 0 // robar no es caída → corta la racha
           let pts = 0
           const limpia = s.table.length === 0
-          if (limpia && s.scores[team] < TARGET) { pts = 2; s.scores[team] += 2 }
+          if (limpia) { pts = 2; addPoints(s, team, 2, false) }
           s.lastEvents.push({ type: limpia ? 'limpia' : 'levante', seat: ctx.seat, pts, n: selected.length, result: null, cards: selected.map(c => ({ ...c })) })
           s.lastPlay = null
           const wNow = s.scores.findIndex(x => x >= TARGET)
-          if (wNow >= 0) { endChica(s, wNow, ctx.rng); return s }
+          if (wNow >= 0) { endChica(s, wNow, ctx.rng); return settle(s, ctx.rng) }
           // recomputar carry (robos encadenados: 6 y luego 7); el turno NO cambia
           setCarry(s, base, selected)
-          return s
+          return settle(s, ctx.rng)
         }
         throw new Error('nothing-to-rob')
       }
@@ -371,15 +400,16 @@ export function makeCuarentaEngine () {
           isValidCapture(played, selected)
         if (!okSel) { applyFault(s, team, ctx.rng); return s } // combinación inválida = fatal
         applyCapture(s, team, ctx.seat, played, selected, prevLast, true, false)
+        if (s._winChica != null) return settle(s, ctx.rng) // 4 caídas seguidas → gana la mesa
         const wCap = s.scores.findIndex(x => x >= TARGET)
-        if (wCap >= 0) { endChica(s, wCap, ctx.rng); return s }
+        if (wCap >= 0) { endChica(s, wCap, ctx.rng); return settle(s, ctx.rng) }
         s.turn = nextSeat(s, ctx.seat)
         refill(s, ctx.rng)
         setCarry(s, played.seq, selected) // ¿quedó escalera colgando?
-        return s
+        return settle(s, ctx.rng) // un reparto pudo dar doble ronda (gana la mesa)
       } else {
-        // no seleccionó: ¿había algo que levantar con esa carta? (evaluar contra la
-        // mesa SIN la carta tirada). Luego se bota a la mesa.
+        // no seleccionó: bota la carta. Una jugada que NO captura corta la racha.
+        s.caidaStreak[team] = 0
         const canClaim = captureExists(s.table, played)
         s.table.push(played)
         s.lastPlay = { seat: ctx.seat, card: played }
@@ -394,12 +424,12 @@ export function makeCuarentaEngine () {
 
       // ¿Los puntos ya cerraron la chica?
       const wNow = s.scores.findIndex(x => x >= TARGET)
-      if (wNow >= 0) { endChica(s, wNow, ctx.rng); return s }
+      if (wNow >= 0) { endChica(s, wNow, ctx.rng); return settle(s, ctx.rng) }
 
       // Turno + reparto/cartón.
       s.turn = nextSeat(s, ctx.seat)
       refill(s, ctx.rng)
-      return s
+      return settle(s, ctx.rng)
     },
 
     // Proyección por asiento: cada quien ve SU mano; del resto, sólo cuántas cartas.

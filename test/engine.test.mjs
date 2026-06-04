@@ -263,7 +263,7 @@ for (let seed = 1; seed <= 20; seed++) {
   assert.equal(ns.scores[team], 38, '38: la limpia (no-caída) no suma')
 }
 
-// ── caída en ronda = caída + 2 (total 4) ───────────────────────
+// ── caída normal = 2 (sin importar si tienes ronda) ────────────
 {
   setPendingConfig({ activeSeats: ['p1', 'p2'] })
   const e = makeCuarentaEngine(); const rng = mulberry32(13)
@@ -272,12 +272,28 @@ for (let seed = 1; seed <= 20; seed++) {
   const seat = s.turn; const team = s.teamOf[seat]
   s.scores = [0, 0]
   const hc = s.hands[seat][0]
-  s.rondaRank[seat] = hc.r // tengo ronda de ese rango
   const rival = { id: hc.r + 'Zc', r: hc.r, s: 'c', seq: hc.seq, sum: hc.sum }
   const extra = { id: 'Kd2', r: 'K', s: 'd', seq: 10, sum: null }
   s.table = [rival, extra]; s.lastPlay = { seat: 'p2', card: rival } // el rival acaba de tirar
   const ns = e.reducer(s, { type: 'play', card: hc.id, captured: [rival.id] }, { seat, seats: {}, rng, now: 0 })
-  assert.equal(ns.scores[team], 2, 'caída en ronda = 2 (sin bonus)')
+  assert.equal(ns.scores[team], 2, 'caída = 2 (sin limpia, queda la K)')
+}
+
+// ── 4 caídas seguidas = gana la mesa (chica) ───────────────────
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const e = makeCuarentaEngine(); const rng = mulberry32(21)
+  let s = e.initialState(rng); let ci = 0
+  for (const sid of s.activeSeats) s = e.reducer(s, { type: 'cut', index: ci++ }, { seat: sid, seats: {}, rng, now: 0 })
+  const seat = s.turn; const team = s.teamOf[seat]
+  s.scores = [0, 0]; s.caidaStreak = [0, 0]; s.caidaStreak[team] = 3 // ya van 3 caídas
+  const before = s.chicasWon[team]
+  const hc = s.hands[seat][0]
+  const rival = { id: hc.r + 'Wc', r: hc.r, s: 'c', seq: hc.seq, sum: hc.sum }
+  const extra = { id: 'Kd9', r: 'K', s: 'd', seq: 10, sum: null }
+  s.table = [rival, extra]; s.lastPlay = { seat: 'p2', card: rival }
+  const ns = e.reducer(s, { type: 'play', card: hc.id, captured: [rival.id] }, { seat, seats: {}, rng, now: 0 })
+  assert.ok(ns.chicasWon[team] > before, '4ª caída seguida gana la chica')
 }
 
 // ── tirar FUERA DE TURNO = pasa la mano con 10 ─────────────────

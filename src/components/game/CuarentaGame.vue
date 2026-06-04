@@ -401,7 +401,6 @@ const EV_TEXT = {
   caida: () => t.value.evCaida,
   limpia: () => t.value.evLimpia,
   caidaLimpia: () => t.value.evCaidaLimpia,
-  caidaEnRonda: () => t.value.evCaidaEnRonda,
   ronda: () => t.value.evRonda,
   dobleRonda: () => t.value.evDobleRonda,
   chica: () => t.value.evChica
@@ -414,7 +413,7 @@ let dataTimer = null
 // Cinemática del levante (carta ejecutora + cartas que se lleva).
 const captureCine = ref(null)
 let cineTimer = null
-const CAPTURE_TYPES = ['levante', 'caida', 'limpia', 'caidaLimpia', 'caidaEnRonda']
+const CAPTURE_TYPES = ['levante', 'caida', 'limpia', 'caidaLimpia']
 // Cinemática de conteo del cartón al final de cada mano (~5 s).
 const countCine = ref(null)
 let countTimers = []
