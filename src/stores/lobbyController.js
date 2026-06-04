@@ -193,6 +193,16 @@ function clearSavedRoom () { try { localStorage.removeItem(ROOM_KEY) } catch (_)
 async function attemptRejoin () {
   if (_rejoinTried || room.value) return
   _rejoinTried = true
+  // 1) Deep-link de mesa compartida: #table=<token> → unir directo a esa mesa.
+  try {
+    const m = (location.hash || '').match(/[#&]table=([^&]+)/)
+    if (m && m[1]) {
+      const token = decodeURIComponent(m[1])
+      history.replaceState(null, '', location.pathname + location.search) // limpiar el hash
+      if (token) { await joinTable(token); return }
+    }
+  } catch (_) {}
+  // 2) Volver a la sala guardada tras un refresh.
   let saved = null
   try { saved = JSON.parse(localStorage.getItem(ROOM_KEY) || 'null') } catch (_) {}
   if (!saved || !saved.roomId) return

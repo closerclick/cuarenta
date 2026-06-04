@@ -8,6 +8,7 @@
         <div class="team-chicas">{{ t.chicas }}: {{ teamChicas(0) }}</div>
       </div>
       <div class="score-mid">
+        <button class="xs" @click="shareOpen = true" data-testid="share-table">{{ t.shareTable }}</button>
         <button v-if="playing && mySeat" class="danger xs" @click="confirmResign = true" data-testid="resign">{{ t.resign }}</button>
         <button class="xs" @click="$emit('leave')" data-testid="leave-table">{{ t.leave }}</button>
       </div>
@@ -221,22 +222,44 @@
         </div>
       </div>
     </div>
+
+    <!-- Compartir mesa: Web Component compartido del ecosistema -->
+    <closer-click-share
+      :lang="lang"
+      :style="shareTheme"
+      :url="shareUrl"
+      :text="t.shareTableText"
+      :open="shareOpen"
+      @cc-share-close="shareOpen = false"
+    ></closer-click-share>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, watch, onBeforeUnmount } from 'vue'
-import { t } from '@/i18n'
+import { t, lang } from '@/i18n'
 import { lobbyController as L } from '@/stores/lobbyController'
 import PlayingCard from './PlayingCard.vue'
+import '@closerclick/closer-click-share'
 
 const emit = defineEmits(['leave', 'rate'])
 
 const {
-  STATUS, game, status, result, seats, seatIds, tableSize, mySeat, myPubkey,
+  STATUS, game, status, result, seats, seatIds, tableSize, mySeat, myPubkey, roomId,
   isMyTurn, occupiedCount,
   takeSeat, leaveSeat, cut, playCard, rob, resign
 } = L
+
+// Compartir mesa: link directo (#table=<token>) + QR + redes, vía el Web Component
+// compartido del ecosistema (<closer-click-share>). El link abre la mesa al cargar.
+const shareOpen = ref(false)
+const shareUrl = computed(() => roomId.value ? `${location.origin}${location.pathname}#table=${encodeURIComponent(roomId.value)}` : '')
+const shareTheme = {
+  '--ccs-bg': 'var(--color-card-bg)', '--ccs-text': 'var(--color-text)',
+  '--ccs-muted': 'var(--color-text-secondary)', '--ccs-border': 'var(--color-border)',
+  '--ccs-accent': 'var(--color-primary)', '--ccs-accent-text': '#1c1c1e',
+  '--ccs-input-bg': 'var(--color-background)'
+}
 
 const confirmResign = ref(false)
 const playing = computed(() => status.value === STATUS.PLAYING)
