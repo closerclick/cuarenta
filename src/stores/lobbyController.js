@@ -14,6 +14,7 @@ import { createLobby, STATUS } from '@closerclick/closer-click-lobby'
 import { getWebSocketProxyClient } from '@closerclick/closer-click-proxy-client'
 import { Identity } from '@closerclick/closer-click-identity'
 import { createVaultReputation } from '@closerclick/closer-click-reputation'
+import { createVaultProfileProvider } from '@closerclick/closer-click-profile'
 import { makeCuarentaEngine, setPendingConfig } from '@/game/cuarentaEngine'
 
 const GAME_ID = 'cuarenta'
@@ -25,6 +26,7 @@ const engine = makeCuarentaEngine()
 let lobby = null
 let identity = null
 let reputation = null
+let profileProvider = null
 
 const room = shallowRef(null)
 const snapshot = ref(null)
@@ -150,7 +152,7 @@ async function ensureLobby (seatsArr) {
       proxy: getWebSocketProxyClient(),
       identity,
       reputation,
-      start: 'manual', // el host arranca cuando la mesa está completa (2 ó 4) y todos listos
+      start: 'full', // arranca SOLA al llenarse la mesa (sentarse = listo; sin botón)
       onSeatVacated: 'pause',
       allowSpectators: true,
       matchmaking: { preferContacts: true }
@@ -189,7 +191,11 @@ function _bind (r) {
 
 async function createTable (vis = 'public', size = 2) {
   // (Re)crea el lobby con los asientos del tamaño de mesa elegido (2 ó 4).
-  if (!await ensureLobby(seatsForSize(size === 4 ? 4 : 2))) return false
+  const seatList = seatsForSize(size === 4 ? 4 : 2)
+  if (!await ensureLobby(seatList)) return false
+  // El arranque es 'full' (auto): el host fija ya la config del motor (todos los
+  // asientos de la mesa) para que el reparto al llenarse use los equipos correctos.
+  setPendingConfig({ activeSeats: seatList })
   mode.value = 'host'
   visibility.value = vis
   roomId.value = lobby?.transport?.token || null
@@ -243,12 +249,13 @@ function leaveSeat () { room.value?.leaveSeat(); return true }
 function setReady (b) { room.value?.setReady(b); return true }
 function spectate () { room.value?.spectate(); return true }
 
-// Host: arranca con 2 ó 4 asientos ocupados+listos. Fija la config del motor
-// (asientos activos en orden p1..p4) justo antes de start().
+// Host: arranque manual (respaldo; normalmente arranca solo con start:'full').
+// Sólo si la mesa está esperando y completa; no reinicia una partida en curso.
 function startGame () {
   const r = room.value
   if (!r || mode.value !== 'host') return false
   const s = snapshot.value
+  if (s?.status !== STATUS.WAITING) return false
   const ids = Object.keys(s?.seats || {})
   const active = ids.filter(id => s?.seats?.[id]?.occupied)
   if (active.length !== 2 && active.length !== 4) return false
@@ -324,6 +331,15 @@ async function setPeerNickname (pubkey, nick) {
   return updated
 }
 function getReputation () { return reputation }
+// Provider para el Web Component compartido <closer-click-profile> (mismo del
+// ecosistema): datos del vault + reputación de la nube. Para "mi perfil" propio.
+async function getProfileProvider () {
+  if (profileProvider) return profileProvider
+  await ensureIdentity()
+  if (!identity) return null
+  try { profileProvider = createVaultProfileProvider({ identity, reputation }) } catch (_) { profileProvider = null }
+  return profileProvider
+}
 
 // ── derivados de estado ────────────────────────────────────────────
 const game = computed(() => snapshot.value?.game || null)
@@ -367,7 +383,7 @@ export const lobbyController = {
   connectionError, room, snapshot,
   // identidad / reputación
   myPubkey, myNickname, peerIdentities, trustMap, refreshIdentity,
-  setMyNickname, ratePeer, setPeerNickname, getReputation, myElo, eloOf,
+  setMyNickname, ratePeer, setPeerNickname, getReputation, getProfileProvider, myElo, eloOf,
   // nickname requerido
   hasNick, nickModalOpen, requireNick, submitNick, cancelNick,
   // asientos / juego

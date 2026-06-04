@@ -70,15 +70,11 @@
       </div>
     </div>
 
-    <!-- Estado / arranque -->
+    <!-- Estado / arranque (automático al llenarse la mesa) -->
     <div class="banner" v-if="!playing && !finished">
       <template v-if="paused">⏸ {{ t.paused }}</template>
-      <template v-else-if="occupiedCount < 2">{{ t.waitingPlayers }}</template>
-      <template v-else-if="isHost">
-        <button class="primary" :disabled="!canStart" @click="startGame" data-testid="start-game">{{ t.startGame }}</button>
-        <small v-if="!canStart" class="muted">{{ t.needTwoOrFour }}</small>
-      </template>
-      <template v-else>{{ t.waitingHostStart }}</template>
+      <template v-else-if="occupiedCount < tableSize">{{ t.waitingCount(occupiedCount, tableSize) }}</template>
+      <template v-else>⏳ {{ t.starting }}</template>
     </div>
 
     <!-- Turno / claim / carry -->
@@ -175,9 +171,9 @@ import PlayingCard from './PlayingCard.vue'
 defineEmits(['leave', 'rate'])
 
 const {
-  STATUS, game, status, result, seats, seatIds, mySeat, myPubkey, isHost,
-  isMyTurn, occupiedCount, canStart,
-  takeSeat, leaveSeat, startGame, playCard, rob, resign
+  STATUS, game, status, result, seats, seatIds, tableSize, mySeat, myPubkey,
+  isMyTurn, occupiedCount,
+  takeSeat, leaveSeat, playCard, rob, resign
 } = L
 
 const confirmResign = ref(false)

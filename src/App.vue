@@ -14,6 +14,11 @@
         <button class="ghost" @click="rulesOpen = true" :title="t.rules" data-testid="rules-btn">?</button>
         <button class="ghost" @click="toggleLang" :title="lang === 'es' ? 'English' : 'Español'">{{ lang === 'es' ? 'EN' : 'ES' }}</button>
         <button class="ghost" @click="settingsOpen = true" :title="t.identity" data-testid="settings-btn">⚙</button>
+        <button class="ghost" @click="openMyProfile" :title="t.identity" data-testid="my-profile" aria-label="Mi perfil">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:19px;height:19px">
+            <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" />
+          </svg>
+        </button>
       </div>
       <closer-click-support
         class="topbar-coin"
@@ -53,6 +58,20 @@
 
     <UserSettingsModal :open="settingsOpen" @close="settingsOpen = false" />
     <PeerRatingModal :info="ratingTarget" @close="ratingTarget = null" />
+
+    <!-- Mi perfil (botón del header, a la izquierda de la moneda): mismo Web
+         Component compartido en modo self con mi identidad del vault. -->
+    <closer-click-profile
+      v-if="myProfilePk"
+      :ref="bindMyProfile"
+      modal
+      mode="self"
+      :lang="lang"
+      :style="profileTheme"
+      :pubkey="myProfilePk"
+      :name="L.myNickname.value || ''"
+      @cc-profile-close="myProfilePk = null"
+    ></closer-click-profile>
   </div>
 </template>
 
@@ -97,6 +116,29 @@ function openRating (seat) {
     peer: id?.peer || null,
     nickname: seat.name || id?.announcedNickname || null
   }
+}
+
+// "Mi perfil": botón del header (a la izquierda de la moneda de soporte) que abre
+// el MISMO Web Component compartido en modo self con mi identidad del vault.
+const myProfilePk = ref(null)
+async function openMyProfile () {
+  await L.refreshIdentity()
+  const pk = L.myPubkey.value
+  if (pk) myProfilePk.value = pk
+}
+function bindMyProfile (el) {
+  if (!el) return
+  L.getProfileProvider().then((p) => { if (p) el.provider = p })
+}
+// Tema del perfil acorde a Cuarenta (mismas variables --color-* de la app).
+const profileTheme = {
+  '--ccp-bg': 'var(--color-card-bg)', '--ccp-bg-2': 'var(--color-surface)',
+  '--ccp-bg-3': 'var(--color-surface-variant)', '--ccp-bg-4': 'var(--color-border-light)',
+  '--ccp-border': 'var(--color-border)', '--ccp-text': 'var(--color-text)',
+  '--ccp-muted': 'var(--color-text-secondary)', '--ccp-accent': 'var(--color-primary)',
+  '--ccp-accent-2': 'var(--color-primary-dark)', '--ccp-derived': '#d49a00', '--ccp-gold': '#f5b301',
+  '--ccp-online': 'var(--color-success)', '--ccp-affinity': 'var(--color-secondary)',
+  '--ccp-input-bg': 'var(--color-background)', '--ccp-radius': '10px',
 }
 
 const rulesHtml = `
