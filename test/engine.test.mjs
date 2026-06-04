@@ -16,7 +16,8 @@ function mulberry32 (a) {
 
 // ── reglas básicas ──────────────────────────────────────────────
 assert.equal(makeDeck().length, 40, '40 cartas')
-assert.equal(carton(19), 0); assert.equal(carton(20), 6); assert.equal(carton(21), 7); assert.equal(carton(22), 8); assert.equal(carton(40), 26)
+// puntos pares (se cuenta de dos en dos): 20→6, 21-22→8, 23-24→10, 40→26
+assert.equal(carton(19), 0); assert.equal(carton(20), 6); assert.equal(carton(21), 8); assert.equal(carton(22), 8); assert.equal(carton(23), 10); assert.equal(carton(40), 26)
 
 const deck = makeDeck()
 const C = (id) => deck.find(c => c.id === id)

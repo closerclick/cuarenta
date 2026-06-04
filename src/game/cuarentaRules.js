@@ -150,12 +150,15 @@ export function captureExists (table, played) {
 
 /**
  * Conteo del "cartón" al agotarse la baraja (las 40 cartas jugadas): puntos por
- * cartas capturadas. 20 cartas = 6 puntos y +1 por cada carta adicional
- * (21 = 7, 22 = 8, 23 = 9, …, 40 = 26). Menos de 20 cartas: nada (si ninguno
+ * cartas capturadas. Se cuenta SIEMPRE de dos en dos, así que los puntos son
+ * PARES: 20 cartas = 6; cada 2 cartas más = +2 (una carta impar redondea hacia
+ * arriba). Tiers: 20→6, 21-22→8, 23-24→10, … 40→26. Menos de 20: nada (si ninguno
  * llega a 20, nadie suma).
  */
 export function carton (cardCount) {
-  return cardCount >= 20 ? cardCount - 14 : 0
+  if (cardCount < 20) return 0
+  const p = cardCount - 14
+  return p % 2 ? p + 1 : p // redondeo al par hacia arriba (no hay puntajes impares)
 }
 
 /** ¿La mano recién repartida (5 cartas) trae ronda? 3 iguales = ronda (4 pts),
