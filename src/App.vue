@@ -131,7 +131,7 @@ onMounted(() => {
     setReady (b) { return L.setReady(b) },
     start () { return L.startGame() },
     play (cardId, captured = []) { return L.playCard(cardId, captured) },
-    rob (captured = []) { return L.rob(captured) },
+    rob (captured = [], ctx = {}) { return L.rob(captured, ctx) },
     state () { return L.snapshot.value },
     game () { return L.game.value }
   }

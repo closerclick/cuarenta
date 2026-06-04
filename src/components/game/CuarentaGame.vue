@@ -209,7 +209,8 @@ function onThrow (card) {
 }
 function onRob () {
   if (!robOpen.value || !selected.size) return
-  rob([...selected])
+  const g = game.value
+  rob([...selected], { claimCardId: g?.claimCardId ?? null, carryValue: g?.carry?.value ?? null })
   selected.clear()
 }
 // limpiar selección cuando cambia el turno/fase (otro jugó o se resolvió)

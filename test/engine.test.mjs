@@ -148,4 +148,42 @@ for (let seed = 1; seed <= 20; seed++) {
   }
 }
 
-console.log('OK — captura (igualdad/escalera/suma2), robar, fatal y 40 partidas completas (2P/4P).')
+// ── robo tardío / stale = se IGNORA (no penaliza) ───────────────
+{
+  setPendingConfig({ activeSeats: ['p1', 'p2'] })
+  const engine = makeCuarentaEngine()
+  const rng = mulberry32(3)
+  let s = engine.initialState(rng)
+  // no hay claim ni carry → un 'rob' debe lanzarse (rechazado), NUNCA fault
+  const before = [...s.scores]
+  let threw = false
+  try {
+    engine.reducer(s, { type: 'rob', captured: ['Xx'] }, { seat: s.turn, seats: {}, rng, now: 0 })
+  } catch (e) { threw = true }
+  assert.ok(threw, 'rob sin claim/carry se rechaza (throw)')
+  assert.deepEqual(s.scores, before, 'no cambia el puntaje (no hay fault)')
+
+  // simular claim y un rob que apunta a OTRA carta (tardío) → stale, no fault
+  // botar una carta sin levantar hasta abrir un claim:
+  let guard = 0
+  while (s.phase !== 'claim' && guard < 50) {
+    guard++
+    const seat = s.turn
+    // botar la primera carta sin selección
+    const card = s.hands[seat][0]
+    const ns = engine.reducer(s, { type: 'play', card: card.id, captured: [] }, { seat, seats: {}, rng, now: 0 })
+    s = ns
+    if (s.phase === 'claim') break
+  }
+  if (s.phase === 'claim') {
+    const sc = [...s.scores]
+    let staleThrew = false
+    try {
+      engine.reducer(s, { type: 'rob', captured: [s.claimCardId], claimCardId: 'ZZ' }, { seat: s.activeSeats[0], seats: {}, rng, now: 0 })
+    } catch (e) { staleThrew = e.message === 'stale-rob' }
+    assert.ok(staleThrew, 'rob con claimCardId que no coincide = stale (ignorado)')
+    assert.deepEqual(s.scores, sc, 'stale-rob no penaliza')
+  }
+}
+
+console.log('OK — captura, robar, carry, fatal, stale-rob ignorado y 40 partidas (2P/4P).')

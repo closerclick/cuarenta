@@ -232,6 +232,10 @@ export function makeCuarentaEngine () {
         const selIds = Array.isArray(action.captured) ? action.captured : []
 
         if (state.phase === 'claim') {
+          // Robo que llega tarde / apunta a otro claim → IGNORAR (no es inválido).
+          if (action.claimCardId != null && action.claimCardId !== state.claimCardId) {
+            throw new Error('stale-rob')
+          }
           const resultCard = s.table.find(c => c.id === state.claimCardId)
           if (!resultCard) throw new Error('no-claim-card')
           const pool = s.table.filter(c => c.id !== resultCard.id)
@@ -250,6 +254,11 @@ export function makeCuarentaEngine () {
 
         // (b) robo de continuación: la escalera consecutiva que quedó colgando.
         if (state.carry) {
+          // Robo tardío / apunta a otra continuación (p. ej. ya robaron el 6 y el
+          // carry pasó a 7) → IGNORAR, no es inválido.
+          if (action.carryValue != null && action.carryValue !== state.carry.value) {
+            throw new Error('stale-rob')
+          }
           const base = state.carry.value
           const selected = selIds.map(id => s.table.find(c => c.id === id))
           const okSel = selected.length > 0 && selected.every(Boolean) &&

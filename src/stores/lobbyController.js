@@ -264,12 +264,13 @@ function playCard (cardId, captured = []) {
   r.action({ type: 'play', card: cardId, captured })
   return true
 }
-// Robar: durante la ventana de claim, levantar la carta que quedó seleccionando
-// la combinación (`captured` = ids de la mesa, sin la carta tirada).
-function rob (captured = []) {
+// Robar: durante la ventana de claim o de carry. `captured` = ids de la mesa.
+// `ctx` lleva a QUÉ apunta el robo (claimCardId o carryValue) para que un robo que
+// llega tarde (la ventana ya cambió) se IGNORE en vez de tomarse como inválido.
+function rob (captured = [], ctx = {}) {
   const r = room.value
   if (!r) return false
-  r.action({ type: 'rob', captured })
+  r.action({ type: 'rob', captured, claimCardId: ctx.claimCardId ?? null, carryValue: ctx.carryValue ?? null })
   return true
 }
 function resign () { room.value?.action({ type: 'resign' }); return true }
