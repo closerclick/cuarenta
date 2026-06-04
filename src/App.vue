@@ -155,16 +155,28 @@ const rulesHtml = `
   <p>El <b>Cuarenta</b> es el juego de naipes tradicional del Ecuador, para <b>2 ó 4 jugadores</b>
   (en 4, dos parejas que se sientan alternadas). Se juega con <b>40 cartas</b>: la baraja sin los
   8, 9, 10 ni comodines.</p>
+  <p><b>La data:</b> al empezar se reparten 40 cartas boca abajo y cada jugador escoge una; la más
+  alta (a igualdad de número gana el palo ♦ &gt; ♥ &gt; ♠ &gt; ♣) <b>reparte</b>.</p>
+  <p><b>Levantar (selección manual):</b> seleccionas cartas de la mesa y tiras la carta que las
+  levanta:</p>
   <ul>
-    <li>En tu turno tiras una carta. Capturas (“levantas”) cartas de la mesa por <b>igualdad</b>
-      (misma carta), por <b>escalera</b> (subes consecutivo: …5 6 7 J Q K) o por <b>suma</b>
-      (cartas numéricas que sumen tu carta, ej. 4+3=7).</li>
-    <li><b>Caída (+2):</b> igualar la carta que acaba de tirar el rival.</li>
-    <li><b>Limpia (+2):</b> levantar todas las cartas de la mesa. <b>Caída y limpia = +4.</b></li>
-    <li><b>Ronda (+4):</b> tres cartas iguales en mano. <b>Doble ronda (+8):</b> cuatro iguales.</li>
-    <li><b>Cartón:</b> al agotarse la baraja se cuentan las cartas capturadas; desde 20 cartas, 6
-      puntos, y +1 por cada 2 más.</li>
+    <li><b>Igualdad:</b> misma carta.</li>
+    <li><b>Escalera:</b> consecutivas hacia arriba (…5 6 7 J Q K). La <b>base</b> puede formarse con
+      una <b>suma de 2 cartas</b> (&lt;8), pero los peldaños siguientes son cartas sueltas.</li>
+    <li>Si no seleccionas y había jugada, queda para <b>robar</b>: cualquiera puede levantarla con el
+      botón <b>Robar</b> antes de la siguiente jugada (incluida la escalera que quedó colgando).</li>
   </ul>
+  <p><b>Puntos:</b></p>
+  <ul>
+    <li><b>Caída +2:</b> igualar la carta que acabó de tirar el rival. <b>Caída y limpia = 2</b> (no se suman).</li>
+    <li><b>Caída en ronda +4:</b> caes con la carta de tu propia ronda.</li>
+    <li><b>Ronda +4</b> (3 iguales en mano) · <b>Doble ronda +8</b> (4 iguales).</li>
+    <li><b>Cartón:</b> al jugarse las 40 cartas se cuentan las capturadas, <b>de dos en dos</b>:
+      20 = 6, 21-22 = 8, 23-24 = 10… (puntos pares). Menos de 20: nada.</li>
+  </ul>
+  <p><b>Reglas de mesa:</b> tienes <b>60 s por turno</b> o se cuenta como abandono. Tirar fuera de
+  turno o levantar una combinación inválida es falta: <b>«pasa la mano con 10»</b> (10 al rival y se
+  rebaraja). El abandono se pierde.</p>
   <p>Gana la <b>chica</b> quien llega a <b>40 puntos</b>; gana la partida quien gana <b>2 chicas</b>.
   Desde 30 puntos «no sirve cartón».</p>
 `

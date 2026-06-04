@@ -173,7 +173,35 @@ async function ensureLobby (seatsArr) {
 }
 
 // Para navegar/listar/unir basta con un lobby cualquiera (4 asientos por defecto).
-async function connect () { return ensureLobby(seatsForSize(4)) }
+async function connect () { const ok = await ensureLobby(seatsForSize(4)); if (ok) attemptRejoin(); return ok }
+
+// ── volver a la mesa tras refrescar ─────────────────────────────────
+// Se guarda la sala actual; al cargar, si es reciente, se reentra. Guest: re-une
+// (reclama su asiento si está dentro del grace). Host: el token cambia al
+// reconectar, así que reabre una mesa nueva del mismo tamaño.
+const ROOM_KEY = 'cuarenta_room'
+const REJOIN_TTL = 90000
+let _hostSize = 2
+let _rejoinTried = false
+function saveRoom () {
+  try {
+    if (!roomId.value || !mode.value) return
+    localStorage.setItem(ROOM_KEY, JSON.stringify({ roomId: roomId.value, role: mode.value, size: _hostSize, vis: visibility.value || 'public', ts: Date.now() }))
+  } catch (_) {}
+}
+function clearSavedRoom () { try { localStorage.removeItem(ROOM_KEY) } catch (_) {} }
+async function attemptRejoin () {
+  if (_rejoinTried || room.value) return
+  _rejoinTried = true
+  let saved = null
+  try { saved = JSON.parse(localStorage.getItem(ROOM_KEY) || 'null') } catch (_) {}
+  if (!saved || !saved.roomId) return
+  if (Date.now() - (saved.ts || 0) > REJOIN_TTL) { clearSavedRoom(); return }
+  try {
+    if (saved.role === 'guest') await joinTable(saved.roomId)
+    else if (saved.role === 'host') await createTable(saved.vis || 'public', saved.size || 2)
+  } catch (_) { clearSavedRoom() }
+}
 
 function _bind (r) {
   room.value = r
@@ -181,16 +209,18 @@ function _bind (r) {
   const refresh = () => { snapshot.value = { ...r.state }; refreshPeers() }
   r.on('update', refresh)
   r.on('state', refresh)
-  r.on('ended', refresh)
+  r.on('ended', () => { clearSavedRoom(); refresh() })
   r.on('started', refresh)
   r.on('result', onResult)
-  r.on('closed', () => { connectionError.value = 'La sala se cerró'; refresh() })
+  r.on('closed', () => { connectionError.value = 'La sala se cerró'; clearSavedRoom(); refresh() })
   refresh()
+  saveRoom() // recordar la sala para volver tras un refresh
   return r
 }
 
 async function createTable (vis = 'public', size = 2) {
   // (Re)crea el lobby con los asientos del tamaño de mesa elegido (2 ó 4).
+  _hostSize = size === 4 ? 4 : 2
   const seatList = seatsForSize(size === 4 ? 4 : 2)
   if (!await ensureLobby(seatList)) return false
   // El arranque es 'full' (auto): el host fija ya la config del motor (todos los
@@ -223,6 +253,7 @@ async function joinTable (hostToken) {
 }
 
 async function leaveTable () {
+  clearSavedRoom() // salida voluntaria → no reentrar tras refresh
   const r = room.value
   if (r) { try { await r.leave() } catch (_) {} }
   room.value = null

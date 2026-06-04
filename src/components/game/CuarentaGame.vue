@@ -17,7 +17,7 @@
     <!-- Corte por la data: cada quien elige una carta; la más alta reparte -->
     <div v-if="drawPhase" class="draw">
       <h3 class="draw-title">{{ t.drawTitle }}</h3>
-      <p class="draw-sub">{{ myDrawPick ? t.drawWaiting(drawInfo.picked, drawInfo.players) : (mySeat ? t.drawPick : t.spectating) }}</p>
+      <p class="draw-sub">{{ myDrawPick ? t.drawWaiting(drawInfo.picked, drawInfo.players) : (mySeat ? t.drawPick : t.spectating) }}<span v-if="onClock" class="clock" :class="{ low: secsLeft <= 10 }"> · {{ secsLeft }}s</span></p>
       <div class="draw-grid" data-testid="draw-grid">
         <PlayingCard
           v-for="i in drawTotal" :key="i - 1"
@@ -100,7 +100,7 @@
         <span class="claim-hint" data-testid="claim-hint">⚠ {{ mySeat ? t.claimHint : t.claimWaiting(seatOf(game?.claimSeat)?.name || t.noName) }}</span>
       </template>
       <template v-else>
-        <span v-if="isMyTurn" class="my-turn" data-testid="my-turn">▶ {{ t.yourTurn }}</span>
+        <span v-if="isMyTurn" class="my-turn" data-testid="my-turn">▶ {{ t.yourTurn }} <span class="clock" :class="{ low: secsLeft <= 10 }" data-testid="turn-clock">{{ secsLeft }}s</span></span>
         <span v-else class="muted">{{ t.turnOf(seatOf(game?.turn)?.name || t.noName) }}</span>
         <span v-if="carryOpen" class="claim-hint" data-testid="carry-hint">⚡ {{ t.carryHint }}</span>
       </template>
@@ -245,6 +245,36 @@ const claimOpen = computed(() => playing.value && game.value?.phase === 'claim')
 // próxima jugada. Cualquier jugador sentado puede robar.
 const carryOpen = computed(() => playing.value && !!game.value?.carry)
 const robOpen = computed(() => (claimOpen.value || carryOpen.value) && !!mySeat.value)
+
+// ── reloj por turno: 60 s para actuar o ABANDONO ────────────────────
+// El cliente del jugador al que le toca corre el reloj y, si se agota, manda
+// resign (abandono = pierde). Los bots actúan en segundos, así que no aplica.
+const TURN_SECONDS = 60
+const secsLeft = ref(TURN_SECONDS)
+let turnTimer = null
+// Clave del "estoy en el reloj": cambia al entrar/salir de mi acción obligatoria
+// (cortar en 'draw', o jugar en 'play' cuando es mi turno).
+const onClockKey = computed(() => {
+  const g = game.value
+  if (!playing.value || !mySeat.value || !g) return null
+  if (g.phase === 'draw') return g.draw && !g.draw.myPick ? 'draw' : null
+  if (g.phase === 'play' && g.turn === mySeat.value) return 'play'
+  return null
+})
+const onClock = computed(() => !!onClockKey.value)
+watch(onClockKey, (key) => {
+  if (turnTimer) { clearInterval(turnTimer); turnTimer = null }
+  secsLeft.value = TURN_SECONDS
+  if (!key) return
+  turnTimer = setInterval(() => {
+    secsLeft.value -= 1
+    if (secsLeft.value <= 0) {
+      clearInterval(turnTimer); turnTimer = null
+      if (onClockKey.value) resign() // se acabó el tiempo → abandono
+    }
+  }, 1000)
+}, { immediate: true })
+onBeforeUnmount(() => { if (turnTimer) clearInterval(turnTimer) })
 
 // ── selección manual de cartas de la mesa ───────────────────────────
 const selected = reactive(new Set())
@@ -552,6 +582,8 @@ button.link:hover { transform: none; background: none; }
 .banner { text-align: center; padding: 10px; display: flex; flex-direction: column; gap: 8px; align-items: center; color: var(--color-text-secondary); }
 .turn-bar { text-align: center; min-height: 24px; display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap; }
 .my-turn { color: var(--color-primary); font-weight: 700; }
+.clock { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--color-text-secondary); }
+.clock.low { color: var(--color-error); }
 .claim-hint { color: var(--color-warning); font-weight: 600; }
 button.link.clear { color: var(--color-text-secondary); }
 
