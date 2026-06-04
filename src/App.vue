@@ -18,6 +18,7 @@
           <button :class="{ on: lang === 'en' }" @click="setLang('en')" data-testid="lang-en">EN</button>
         </div>
         <button class="ghost" @click="settingsOpen = true" :title="t.identity" data-testid="settings-btn">⚙</button>
+        <span v-if="L.myElo.value && L.myElo.value.elo != null" class="elo-badge" title="ELO Cuarenta" data-testid="my-elo">ELO {{ L.myElo.value.elo }}</span>
         <button class="ghost" @click="openMyProfile" :title="t.identity" data-testid="my-profile" aria-label="Mi perfil">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="width:19px;height:19px">
             <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-6 8-6s8 2 8 6" />
@@ -70,6 +71,7 @@
       :ref="bindMyProfile"
       modal
       mode="self"
+      indicators="elo:cuarenta"
       :lang="lang"
       :style="profileTheme"
       :pubkey="myProfilePk"
@@ -227,7 +229,8 @@ onMounted(() => {
 .brand-text { display: flex; flex-direction: column; line-height: 1.1; min-width: 0; }
 .brand-name { font-family: var(--font-headline); font-weight: 700; font-size: 1.15rem; }
 .brand-tag { font-size: 0.72rem; color: var(--color-text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.actions { display: flex; gap: 6px; margin-left: auto; }
+.actions { display: flex; gap: 6px; margin-left: auto; align-items: center; }
+.elo-badge { font-size: .8rem; font-weight: 700; color: var(--color-primary); border: 1px solid var(--color-primary); border-radius: 8px; padding: 4px 8px; white-space: nowrap; }
 button.ghost { background: transparent; border: 1px solid var(--color-border); width: 38px; height: 38px; padding: 0; border-radius: 10px; font-size: 1rem; display: inline-flex; align-items: center; justify-content: center; }
 /* Selector de idioma: toggle que SIEMPRE muestra ambas opciones (ES/EN), con la
    activa resaltada (patrón del ecosistema; ver CONVENCIONES-APPS §9). */
