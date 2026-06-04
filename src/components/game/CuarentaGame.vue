@@ -106,6 +106,19 @@
     </div>
     <p class="play-hint muted" v-if="isMyTurn && !claimOpen">{{ t.selectHint }}</p>
 
+    <!-- Cinemática del levante: la carta que ejecuta arriba y debajo las que se
+         lleva, sobrevolando la mesa (~2 s) -->
+    <transition name="cine">
+      <div v-if="captureCine" class="cine" data-testid="capture-cine">
+        <div class="cine-box">
+          <PlayingCard :card="captureCine.result" class="cine-result" />
+          <div class="cine-taken">
+            <PlayingCard v-for="c in captureCine.cards" :key="c.id" :card="c" />
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <!-- Toast central de error fatal ("pasa la mano con 10") -->
     <transition name="fault">
       <div v-if="faultMsg" class="fault-toast" data-testid="fault-toast">{{ faultMsg }}</div>
@@ -268,6 +281,10 @@ const EV_TEXT = {
 }
 const faultMsg = ref('')
 let faultTimer = null
+// Cinemática del levante (carta ejecutora + cartas que se lleva).
+const captureCine = ref(null)
+let cineTimer = null
+const CAPTURE_TYPES = ['levante', 'caida', 'limpia', 'caidaLimpia']
 watch(() => game.value?.lastEvents, (evs) => {
   if (!Array.isArray(evs)) return
   for (const e of evs) {
@@ -276,6 +293,11 @@ watch(() => game.value?.lastEvents, (evs) => {
       if (faultTimer) clearTimeout(faultTimer)
       faultTimer = setTimeout(() => { faultMsg.value = '' }, 3200)
       continue
+    }
+    if (CAPTURE_TYPES.includes(e.type) && e.result) {
+      captureCine.value = { result: e.result, cards: e.cards || [] }
+      if (cineTimer) clearTimeout(cineTimer)
+      cineTimer = setTimeout(() => { captureCine.value = null }, 1900)
     }
     const fn = EV_TEXT[e.type]
     if (!fn) continue
@@ -385,6 +407,28 @@ button.link.clear { color: var(--color-text-secondary); }
 }
 .fault-enter-active, .fault-leave-active { transition: opacity .25s ease, transform .25s ease; }
 .fault-enter-from, .fault-leave-to { opacity: 0; transform: translate(-50%, -50%) scale(.8); }
+
+/* Cinemática del levante: cartas grandes sobrevolando la mesa */
+.cine {
+  position: fixed; inset: 0; z-index: 1150; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+}
+.cine-box {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 18px 22px; border-radius: 18px;
+  background: rgba(20, 16, 10, 0.78); box-shadow: var(--shadow-lg);
+  animation: cine-float 1.9s ease-in-out;
+}
+.cine-box :deep(.cine-result) { --cw: 104px; outline: 3px solid var(--color-primary); box-shadow: 0 0 22px rgba(205,163,80,.7); }
+.cine-taken { display: flex; gap: 8px; --cw: 78px; }
+@keyframes cine-float {
+  0%   { transform: scale(.6) translateY(20px); opacity: 0; }
+  14%  { transform: scale(1) translateY(0); opacity: 1; }
+  82%  { transform: scale(1) translateY(-6px); opacity: 1; }
+  100% { transform: scale(.96) translateY(-22px); opacity: 0; }
+}
+.cine-enter-active, .cine-leave-active { transition: opacity .2s ease; }
+.cine-enter-from, .cine-leave-to { opacity: 0; }
 
 .controls { display: flex; gap: 8px; justify-content: center; }
 

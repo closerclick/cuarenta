@@ -161,7 +161,11 @@ function applyCapture (s, team, seat, resultCard, capturedCards, prevLast, allow
   if (pts && s.scores[team] < TARGET) s.scores[team] += pts
   s.lastEvents.push({
     type: caida && limpia ? 'caidaLimpia' : caida ? 'caida' : limpia ? 'limpia' : 'levante',
-    seat, pts, n: capturedCards.length + 1
+    seat, pts, n: capturedCards.length + 1,
+    // cartas involucradas (para la cinemática del levante): la que ejecuta + las
+    // que se lleva. Son cartas públicas (estaban en la mesa), seguras de difundir.
+    result: { ...resultCard },
+    cards: capturedCards.map(c => ({ ...c }))
   })
   s.lastPlay = null
   s.phase = 'play'
