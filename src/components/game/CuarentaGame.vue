@@ -81,16 +81,17 @@
       <template v-else>{{ t.waitingHostStart }}</template>
     </div>
 
-    <!-- Turno / claim -->
+    <!-- Turno / claim / carry -->
     <div class="turn-bar" v-if="playing">
       <template v-if="claimOpen">
         <span class="claim-hint" data-testid="claim-hint">⚠ {{ mySeat ? t.claimHint : t.claimWaiting(seatOf(game?.claimSeat)?.name || t.noName) }}</span>
-        <button v-if="mySeat" class="primary sm" :disabled="!selected.size" @click="onRob" data-testid="rob-btn">{{ t.rob }}</button>
       </template>
       <template v-else>
         <span v-if="isMyTurn" class="my-turn" data-testid="my-turn">▶ {{ t.yourTurn }}</span>
         <span v-else class="muted">{{ t.turnOf(seatOf(game?.turn)?.name || t.noName) }}</span>
+        <span v-if="carryOpen" class="claim-hint" data-testid="carry-hint">⚡ {{ t.carryHint }}</span>
       </template>
+      <button v-if="robOpen" class="primary sm" :disabled="!selected.size" @click="onRob" data-testid="rob-btn">{{ t.rob }}</button>
       <button v-if="selected.size" class="link clear" @click="selected.clear()" data-testid="clear-sel">{{ t.clearSel }} ({{ selected.size }})</button>
     </div>
 
@@ -184,13 +185,18 @@ const playing = computed(() => status.value === STATUS.PLAYING)
 const finished = computed(() => status.value === STATUS.ENDED || !!game.value?.finished)
 const paused = computed(() => status.value === STATUS.PAUSED)
 const claimOpen = computed(() => playing.value && game.value?.phase === 'claim')
+// robo de continuación (carry): disponible aunque el turno avance, hasta la
+// próxima jugada. Cualquier jugador sentado puede robar.
+const carryOpen = computed(() => playing.value && !!game.value?.carry)
+const robOpen = computed(() => (claimOpen.value || carryOpen.value) && !!mySeat.value)
 
 // ── selección manual de cartas de la mesa ───────────────────────────
 const selected = reactive(new Set())
 function canSelectTable (c) {
   if (!playing.value || !mySeat.value) return false
   if (claimOpen.value) return c.id !== game.value?.claimCardId // no se elige la carta tirada
-  return isMyTurn.value // en mi turno selecciono la combinación
+  if (carryOpen.value || isMyTurn.value) return true // robar continuación o capturar en mi turno
+  return false
 }
 function toggleSelect (c) {
   if (!canSelectTable(c)) return
@@ -202,7 +208,7 @@ function onThrow (card) {
   selected.clear()
 }
 function onRob () {
-  if (!claimOpen.value || !mySeat.value || !selected.size) return
+  if (!robOpen.value || !selected.size) return
   rob([...selected])
   selected.clear()
 }

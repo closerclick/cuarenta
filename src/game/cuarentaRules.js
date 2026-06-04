@@ -66,6 +66,13 @@ export function isValidCapture (played, selected) {
   return fillsRun(selected.slice(), played.seq)
 }
 
+/** ¿`selected` forma una escalera contigua que ARRANCA en `base`? (robo de
+ *  continuación: no hay carta resultado; debe empezar justo en `base`). */
+export function isRunFrom (selected, base) {
+  if (!Array.isArray(selected) || selected.length === 0) return false
+  return fillsRun(selected.slice(), base)
+}
+
 // Backtracking: ¿`cards` se reparte en peldaños consecutivos desde el valor `v`?
 function fillsRun (cards, v) {
   if (cards.length === 0) return true
@@ -90,6 +97,36 @@ function fillsRun (cards, v) {
     }
   }
   return false
+}
+
+/** Valor TOPE de la escalera formada por `selected` arrancando en `base` (asume
+ *  que ya es una captura válida). Sirve para saber qué valor consecutivo queda
+ *  «colgando» y por tanto robable. Devuelve el último valor cubierto. */
+export function runTop (selected, base) {
+  const top = topFrom(selected.slice(), base)
+  return top == null ? base : top
+}
+function topFrom (cards, v) {
+  if (cards.length === 0) return v - 1
+  for (let i = 0; i < cards.length; i++) {
+    if (cards[i].seq === v) {
+      const r = topFrom(cards.slice(0, i).concat(cards.slice(i + 1)), v + 1)
+      if (r != null) return r
+    }
+  }
+  if (v <= 7) {
+    for (let i = 0; i < cards.length; i++) {
+      if (cards[i].sum == null) continue
+      for (let j = i + 1; j < cards.length; j++) {
+        if (cards[j].sum == null) continue
+        if (cards[i].sum + cards[j].sum === v) {
+          const r = topFrom(cards.filter((_, k) => k !== i && k !== j), v + 1)
+          if (r != null) return r
+        }
+      }
+    }
+  }
+  return null
 }
 
 /** ¿Existe ALGUNA captura posible al tirar `played` sobre `table`? (basta con que

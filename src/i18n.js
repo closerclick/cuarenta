@@ -89,6 +89,7 @@ const messages = {
     selectHint: 'Selecciona cartas de la mesa y tira la que las levanta (o tira sin seleccionar).',
     claimHint: '¡Hay cartas para levantar! Selecciona la combinación y róbalas.',
     claimWaiting: (name) => `${name} dejó cartas por levantar…`,
+    carryHint: 'Quedó escalera por robar — selecciona y roba (antes de la próxima jugada).',
     // fin
     winTitle: '¡Partida terminada!',
     youWin: '¡Ganaste! 🏆',
@@ -203,6 +204,7 @@ const messages = {
     selectHint: 'Select table cards and throw the card that takes them (or throw without selecting).',
     claimHint: 'There are cards to take! Select the combination and steal them.',
     claimWaiting: (name) => `${name} left cards to be taken…`,
+    carryHint: 'A run is left to steal — select and steal it (before the next play).',
     winTitle: 'Game over!',
     youWin: 'You win! 🏆',
     youLose: 'You lost',

@@ -2,7 +2,7 @@
 // 2), robar, error fatal, y partidas completas (2 y 4 jug.) sin excepciones.
 // node test/engine.test.mjs
 import { makeCuarentaEngine, setPendingConfig } from '../src/game/cuarentaEngine.js'
-import { makeDeck, carton, isValidCapture, captureExists, findRonda } from '../src/game/cuarentaRules.js'
+import { makeDeck, carton, isValidCapture, isRunFrom, runTop, captureExists, findRonda } from '../src/game/cuarentaRules.js'
 import assert from 'node:assert'
 
 function mulberry32 (a) {
@@ -38,6 +38,12 @@ assert.ok(!isValidCapture(C('5s'), [C('5h'), C('7c')]), 'hueco 5..7 inválido')
 assert.ok(isValidCapture(C('Js'), [C('Jh'), C('Qd'), C('Kc')]), 'J-Q-K consecutivas')
 // viejas no suman
 assert.ok(!isValidCapture(C('Ks'), [C('Jh'), C('Qd')]), 'J+Q no suma a K (viejas no suman)')
+// robo de continuación (carry): 2+3 con 5 deja el 6 colgando
+assert.equal(runTop([C('2h'), C('3d')], 5), 5, 'tope del run 2+3 (base 5) = 5')
+assert.equal(runTop([C('5h'), C('6d'), C('7c')], 5), 7, 'tope 5-6-7 = 7')
+assert.ok(isRunFrom([C('6c')], 6), 'robar el 6 desde 6')
+assert.ok(!isRunFrom([C('7c')], 6), 'NO robar el 7 solo (falta el 6)')
+assert.ok(isRunFrom([C('6c'), C('7d')], 6), 'robar 6 y 7 juntos')
 // captureExists
 assert.ok(captureExists([C('3h'), C('4d')], C('7s')), 'existe suma 3+4=7')
 assert.ok(captureExists([C('5h')], C('5s')), 'existe igualdad')

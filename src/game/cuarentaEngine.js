@@ -11,7 +11,7 @@
 // {p2,p4}. En 2, cada quien es su propio equipo.
 
 import {
-  makeDeck, shuffle, isValidCapture, captureExists, carton, findRonda,
+  makeDeck, shuffle, isValidCapture, isRunFrom, captureExists, runTop, carton, findRonda,
   TARGET, NO_CARTON_FROM, FAULT_POINTS
 } from './cuarentaRules.js'
 
@@ -63,6 +63,7 @@ function reshuffleAndDeal (s, rng) {
   s.phase = 'play'
   s.claimSeat = null
   s.claimCardId = null
+  s.carry = null
   dealRound(s, rng, true)
 }
 
@@ -136,6 +137,9 @@ function makeInitialState (rng) {
     phase: 'play',
     claimSeat: null, // quién tiró la carta que quedó por levantar
     claimCardId: null, // id de esa carta (el "resultado")
+    // continuación de escalera que quedó «colgando» tras un levante: robable por
+    // cualquiera hasta que el siguiente jugador juegue. { value } = valor a robar.
+    carry: null,
     lastEvents: [],
     finished: false,
     winnerTeam: null,
@@ -173,6 +177,15 @@ function applyCapture (s, team, seat, resultCard, capturedCards, prevLast, allow
   s.claimCardId = null
 }
 
+// Tras un levante, ¿quedó la escalera consecutiva «colgando»? Si en la mesa hay
+// una carta del valor siguiente al tope capturado, se abre carry (robable). Se
+// llama DESPUÉS de refill (para que la carta siga en mesa).
+function setCarry (s, baseSeq, capturedCards) {
+  const top = runTop(capturedCards, baseSeq)
+  const cont = top + 1
+  s.carry = (cont <= 10 && s.table.some(c => c.seq === cont)) ? { value: cont } : null
+}
+
 // Error fatal ("pasa la mano con 10"): +10 al equipo contrario, se rebaraja todo y
 // se reparte de nuevo; el puntaje de la chica se conserva.
 function applyFault (s, faultTeam, rng) {
@@ -208,29 +221,56 @@ export function makeCuarentaEngine () {
         return s
       }
 
-      // ── ROBAR: durante la ventana de claim, cualquier jugador toma la carta
-      // que quedó por levantar seleccionando la combinación. Inválido = fatal.
+      // ── ROBAR: dos casos. (a) ventana de claim: alguien tiró sin levantar y
+      // hay combinación; (b) carry: quedó la continuación de una escalera colgando.
+      // Cualquier jugador sentado puede robar; combinación inválida = fatal.
       if (action.type === 'rob') {
-        if (state.phase !== 'claim') throw new Error('not-claim-phase')
         const team = state.teamOf[ctx.seat]
         if (team == null) throw new Error('not-a-player')
         const s = clone(state)
         s.lastEvents = []
-        const resultCard = s.table.find(c => c.id === state.claimCardId)
-        if (!resultCard) throw new Error('no-claim-card')
         const selIds = Array.isArray(action.captured) ? action.captured : []
-        const pool = s.table.filter(c => c.id !== resultCard.id)
-        const selected = selIds.map(id => pool.find(c => c.id === id))
-        const okSel = selected.length > 0 && selected.every(Boolean) &&
-          new Set(selIds).size === selIds.length && isValidCapture(resultCard, selected)
-        if (!okSel) { applyFault(s, team, ctx.rng); return s }
-        applyCapture(s, team, ctx.seat, resultCard, selected, null, false, true)
-        const wNow = s.scores.findIndex(x => x >= TARGET)
-        if (wNow >= 0) { endChica(s, wNow, ctx.rng); return s }
-        // el turno sigue desde quien tiró (claimSeat)
-        s.turn = nextSeat(s, state.claimSeat)
-        refill(s, ctx.rng)
-        return s
+
+        if (state.phase === 'claim') {
+          const resultCard = s.table.find(c => c.id === state.claimCardId)
+          if (!resultCard) throw new Error('no-claim-card')
+          const pool = s.table.filter(c => c.id !== resultCard.id)
+          const selected = selIds.map(id => pool.find(c => c.id === id))
+          const okSel = selected.length > 0 && selected.every(Boolean) &&
+            new Set(selIds).size === selIds.length && isValidCapture(resultCard, selected)
+          if (!okSel) { applyFault(s, team, ctx.rng); return s }
+          applyCapture(s, team, ctx.seat, resultCard, selected, null, false, true)
+          const wNow = s.scores.findIndex(x => x >= TARGET)
+          if (wNow >= 0) { endChica(s, wNow, ctx.rng); return s }
+          s.turn = nextSeat(s, state.claimSeat) // el turno sigue desde quien tiró
+          refill(s, ctx.rng)
+          setCarry(s, resultCard.seq, selected)
+          return s
+        }
+
+        // (b) robo de continuación: la escalera consecutiva que quedó colgando.
+        if (state.carry) {
+          const base = state.carry.value
+          const selected = selIds.map(id => s.table.find(c => c.id === id))
+          const okSel = selected.length > 0 && selected.every(Boolean) &&
+            new Set(selIds).size === selIds.length && isRunFrom(selected, base)
+          if (!okSel) { applyFault(s, team, ctx.rng); return s }
+          const capIds = new Set(selected.map(c => c.id))
+          s.table = s.table.filter(c => !capIds.has(c.id))
+          s.capturedCount[team] += selected.length // sin carta resultado
+          s.lastCapturer = ctx.seat
+          let pts = 0
+          const limpia = s.table.length === 0
+          if (limpia && s.scores[team] < TARGET) { pts = 2; s.scores[team] += 2 }
+          s.lastEvents.push({ type: limpia ? 'limpia' : 'levante', seat: ctx.seat, pts, n: selected.length, result: null, cards: selected.map(c => ({ ...c })) })
+          s.lastPlay = null
+          const wNow = s.scores.findIndex(x => x >= TARGET)
+          if (wNow >= 0) { endChica(s, wNow, ctx.rng); return s }
+          // recomputar carry (robos encadenados: 6 y luego 7); el turno NO cambia
+          setCarry(s, base, selected)
+          return s
+        }
+        throw new Error('nothing-to-rob')
       }
 
       if (action.type !== 'play') throw new Error('unknown-action')
@@ -243,6 +283,7 @@ export function makeCuarentaEngine () {
 
       const s = clone(state)
       s.lastEvents = []
+      s.carry = null // el siguiente jugador juega → se cierra la ventana de robo
       const played = s.hands[ctx.seat].splice(idx, 1)[0]
       const prevLast = state.lastPlay
       const team = s.teamOf[ctx.seat]
@@ -255,6 +296,12 @@ export function makeCuarentaEngine () {
           isValidCapture(played, selected)
         if (!okSel) { applyFault(s, team, ctx.rng); return s } // combinación inválida = fatal
         applyCapture(s, team, ctx.seat, played, selected, prevLast, true, false)
+        const wCap = s.scores.findIndex(x => x >= TARGET)
+        if (wCap >= 0) { endChica(s, wCap, ctx.rng); return s }
+        s.turn = nextSeat(s, ctx.seat)
+        refill(s, ctx.rng)
+        setCarry(s, played.seq, selected) // ¿quedó escalera colgando?
+        return s
       } else {
         // no seleccionó: ¿había algo que levantar con esa carta? (evaluar contra la
         // mesa SIN la carta tirada). Luego se bota a la mesa.
@@ -293,6 +340,7 @@ export function makeCuarentaEngine () {
         phase: state.phase,
         claimSeat: state.claimSeat,
         claimCardId: state.claimCardId,
+        carry: state.carry,
         dealer: state.activeSeats[state.dealerIdx],
         deckCount: state.deck.length,
         capturedCount: state.capturedCount,
