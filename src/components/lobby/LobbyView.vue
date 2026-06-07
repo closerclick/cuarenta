@@ -38,7 +38,8 @@
       <ul v-else class="rooms">
         <li v-for="r in filteredRooms" :key="r.roomId" class="room" :data-testid="'room-' + r.roomId">
           <div class="room-main">
-            <span class="room-name">{{ r.name || t.table }}</span>
+            <span class="room-name">{{ r.name || r.hostName || t.table }}</span>
+            <span v-if="seatedNames(r)" class="room-players">👤 {{ seatedNames(r) }}</span>
             <span class="room-meta">
               <span class="chip" v-if="r.isContact">★ {{ t.friend }}</span>
               <span class="chip">{{ t.players(r.players) }}</span>
@@ -71,6 +72,15 @@ const busy = ref(false)
 const openOnly = ref(false)
 const rooms = computed(() => L.publicRooms.value || [])
 const filteredRooms = computed(() => openOnly.value ? rooms.value.filter(r => r.openSeats > 0) : rooms.value)
+
+// Nombres de los jugadores ya sentados en una mesa (para verlos en la lista
+// pública: si no, una mesa sin nombre se ve como "Table" anónima).
+function seatedNames (r) {
+  return (r.seats || [])
+    .filter(s => s.status === 'occupied' && s.name)
+    .map(s => s.name)
+    .join(' · ')
+}
 
 let timer = null
 onMounted(async () => {
