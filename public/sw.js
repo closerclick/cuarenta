@@ -1,7 +1,9 @@
 // Service worker del Cuarenta — patrón estándar del ecosistema CloserClick:
-// navegación network-first (los deploys se ven enseguida; offline cae a caché),
-// resto cache-first con refresco en segundo plano. Subir CACHE en cada cambio.
-const CACHE = 'cuarenta-v5'
+// navegación network-first SIN HTTP-cache (cache:'reload'), para que un deploy
+// nuevo se vea en la siguiente recarga y no quede atrapado por el max-age del CDN;
+// offline cae a caché. Resto cache-first con refresco en segundo plano (los
+// assets llevan hash de contenido). Subir CACHE en cada cambio.
+const CACHE = 'cuarenta-v6'
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png']
 
 self.addEventListener('install', (e) => {
@@ -21,14 +23,15 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return // no cachear proxy/goat/jsdelivr
 
-  // Navegación (HTML): network-first.
+  // Navegación (HTML): network-first SIN HTTP-cache (cache:'reload'), para no
+  // quedar pegado al max-age del CDN y ver el deploy nuevo en la próxima recarga.
   if (req.mode === 'navigate') {
     e.respondWith(
-      fetch(req).then((res) => {
+      fetch(req.url, { cache: 'reload', credentials: 'same-origin' }).then((res) => {
         const copy = res.clone()
-        caches.open(CACHE).then((c) => c.put(req, copy))
+        caches.open(CACHE).then((c) => c.put('./index.html', copy))
         return res
-      }).catch(() => caches.match(req).then((r) => r || caches.match('./index.html')))
+      }).catch(() => caches.match('./index.html').then((r) => r || caches.match(req)))
     )
     return
   }
