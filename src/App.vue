@@ -85,6 +85,7 @@
 import { ref, nextTick, watch, onMounted } from 'vue'
 import { t, lang, setLang } from './i18n'
 import { lobbyController as L } from './stores/lobbyController'
+import { startAppTutorial } from './lib/tutorial'
 import LobbyView from './components/lobby/LobbyView.vue'
 import CuarentaGame from './components/game/CuarentaGame.vue'
 import UserSettingsModal from './components/identity/UserSettingsModal.vue'
@@ -200,6 +201,17 @@ onMounted(() => {
     rob (captured = [], ctx = {}) { return L.rob(captured, ctx) },
     state () { return L.snapshot.value },
     game () { return L.game.value }
+  }
+
+  // Tutorial guiado (una sola vez por dispositivo). Solo en visita "limpia" (sin
+  // enlace #table entrante), para no interrumpir a quien llega por un enlace.
+  const frag = ((typeof window !== 'undefined' && window.__ccInitialHash) || location.hash || '').replace(/^#/, '')
+  if (!frag) {
+    startAppTutorial({
+      lang: () => lang.value,
+      inRoom: () => L.inRoom.value,
+      hasSeat: () => !!L.mySeat.value,
+    })
   }
 })
 </script>
